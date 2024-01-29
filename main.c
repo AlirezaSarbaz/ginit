@@ -14,5 +14,8 @@ int main(int argc , char* argv[]) {
             return 1;
         }
     }
+    else if (!strcmp(argv[1] , "config")) {
+        run_config(argc , argv);
+    }
     return 0;
 }
