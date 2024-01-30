@@ -1,4 +1,5 @@
 #include "functions.c"
+#include <dirent.h>
 
 int main(int argc , char* argv[]) {
     if (argc < 2) {
@@ -13,6 +14,9 @@ int main(int argc , char* argv[]) {
             perror("ginit repository has already initialized\n");
             return 1;
         }
+    }
+    else if (!strcmp(argv[1] , "add")) {
+        run_add(argc , argv);
     }
     return 0;
 }
