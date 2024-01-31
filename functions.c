@@ -21,13 +21,14 @@ char* generate_commit_id();
 
 void run_add(int argc, char *const argv[]);
 int exist_file_or_dir(const char* filepath);
-void list_files_recursively(const char* basePath , const char* filename , int depth);
+void list_files_recursively(const char* basePath , const char* filename , int depth , int l);
 int add_to_tracking(int argc , char* argv[]);
 int check_files_modified(const char* file_path);
 void update_stages();
 void run_commit(int argc , char* argv[]);
 int is_stage(char* pathspec);
 void add_to_logs(char* argv[] , const char* commit_id);
+int is_directory(const char* path);
 
 int check_ginit_exist() {
     char cwd[MAX_ADDRESS_LENGTH];
@@ -75,6 +76,7 @@ void run_init() {
     //file = fopen(".ginit/filesdata" , "w"); fclose(file);
     file = fopen(".ginit/time" , "w"); fclose(file);
     file = fopen(".ginit/HEAD" , "w"); fprintf(file , "00000000 master");fclose(file);
+    file = fopen(".ginit/branches" , "w"); fprintf(file , "00000000 master\n");fclose(file);
     file = fopen(".ginit/logs" , "w"); fclose(file);
     mkdir(".ginit/commits" , 0755);
 }
@@ -121,7 +123,8 @@ int add_to_tracking(int argc , char* argv[]) {
                 getcwd(cwd , sizeof(cwd));
                 sprintf(path , "%s/%s" , cwd , argv[2]);
                 fprintf(file , "%s %s 1\n" ,argv[2] , path); fclose(file);
-                list_files_recursively(path , ".ginit/tracks" , 2);
+                int l = strlen(cwd) + 1;
+                list_files_recursively(path , ".ginit/tracks" , 2 , l);
             }
         }
     }
@@ -144,8 +147,8 @@ int exist_file_or_dir(const char* pathspec) {
     closedir(dir);
     return -1;
 }
-void list_files_recursively(const char* basePath , const char* filename , int depth) {
-    char path[MAX_ADDRESS_LENGTH];
+void list_files_recursively(const char* basePath , const char* filename , int depth , int l) {
+    char path[MAX_ADDRESS_LENGTH], path_copy[MAX_ADDRESS_LENGTH] , name[MAX_ADDRESS_LENGTH];
     struct  dirent* entry;
     DIR* dir = opendir(basePath);
     if (dir == NULL) {
@@ -157,13 +160,17 @@ void list_files_recursively(const char* basePath , const char* filename , int de
         if (entry->d_type == DT_DIR) {
             if (strcmp(entry->d_name , ".") && strcmp(entry->d_name , "..")) {
                 sprintf(path , "%s/%s" , basePath , entry->d_name);
-                fprintf(file , "%s %s %d\n" , entry->d_name ,path , depth); fclose(file);
-                list_files_recursively(path , filename , depth + 1);
+                strcpy(path_copy , path); memmove(path_copy , path_copy + l , strlen(path_copy) - l + 1);
+                sprintf(name , "%s/%s" , path_copy ,entry->d_name);
+                fprintf(file , "%s %s %d\n" , path_copy ,path , depth); fclose(file);
+                list_files_recursively(path , filename , depth + 1 , l);
             }
         }
         else {
             sprintf(path , "%s/%s" , basePath , entry->d_name);
-            fprintf(file , "%s %s %d\n" , entry->d_name ,path, depth); fclose(file);
+            strcpy(path_copy , path); memmove(path_copy , path_copy + l , strlen(path_copy) - l + 1);
+            sprintf(name , "%s/%s" , path_copy ,entry->d_name);
+            fprintf(file , "%s %s %d\n" , path_copy ,path , depth); fclose(file);
         }
     }
     closedir(dir);
@@ -312,4 +319,12 @@ int is_directory(const char* path) {
         exit(EXIT_FAILURE);
     }
     return S_ISDIR(path_stat.st_mode);
+}
+void run_branch(int argc , char* argv[]) {
+    if (argc == 3) {
+        FILE* head = fopen(".ginit/HEAD" , "r");
+        char current_commit_id[9] , line[MAX_LINE_LENGTH];
+        fgets(line , sizeof(line) , head); sscanf(line , "%s " , current_commit_id ); fclose(head);
+        FILE* branches = fopen(".ginit/branches" , "a"); fprintf(branches , "%s %s\n" , current_commit_id , argv[2]); fclose(branches);
+    }
 }
