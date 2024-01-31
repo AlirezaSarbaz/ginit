@@ -14,6 +14,7 @@
 int check_ginit_exist();
 void run_init();
 void copy_file_source_to_dest(FILE* dest , FILE* source);
+char* generate_commit_id();
 
 void run_add(int argc, char *const argv[]);
 int exist_file_or_dir(const char* filepath);
@@ -21,7 +22,7 @@ void list_files_recursively(const char* basePath , const char* filename , int de
 int add_to_tracking(int argc , char* argv[]);
 int check_files_modified(const char* file_path);
 void update_stages();
-
+void run_commit(int argc , char* argv[]);
 int is_stage(char* pathspec);
 
 int check_ginit_exist() {
@@ -67,8 +68,11 @@ void run_init() {
     chdir(cwd);
     FILE* file = fopen(".ginit/stages" , "w"); fclose(file);
     file = fopen(".ginit/tracks" , "w"); fclose(file);
-    file = fopen(".ginit/filesdata" , "w"); fclose(file);
+    //file = fopen(".ginit/filesdata" , "w"); fclose(file);
     file = fopen(".ginit/time" , "w"); fclose(file);
+    file = fopen(".ginit/HEAD" , "w"); fprintf(file , "00000000 master");fclose(file);
+    file = fopen(".ginit/logs" , "w"); fprintf(file , "00000000"); fclose(file);
+    mkdir(".ginit/commits" , 0755);
 }
 void copy_file_source_to_dest(FILE* dest , FILE* source) {
     char buffer[MAX_LINE_LENGTH];
@@ -227,4 +231,30 @@ void update_stages() {
     }
     fclose(file);
     return 0; 
+}
+void run_commit(int argc , char* argv[]) {
+    char path[MAX_ADDRESS_LENGTH] , commit_id[9];
+    strcpy(commit_id , generate_commit_id());
+    sprintf(path , ".ginit/commits/%s" , commit_id);
+    mkdir(path , 0755);
+    add_to_logs(argv , commit_id);
+    
+}
+char* generate_commit_id() {
+    char* result = malloc(9 * sizeof(char));
+    srand((unsigned int)time(NULL));
+    const char chars[] = {"ABCDEFGHIJKLMNOPKRSTUVWXYZ1234567890"};
+    for (int i = 0; i < 8; i++) {
+        int random_index = rand() % (sizeof(chars) - 1);
+        result[i] = chars[random_index];
+    }
+    result[8] = '\0';
+    return result;
+}
+void add_to_logs(char* argv[] , const char* commit_id) {
+    FILE* file = fopen(".ginit/logs" , "a");
+    fseek(file , -1 , SEEK_END);
+    char last_line[MAX_LINE_LENGTH];
+    fgets(last_line , sizeof(last_line) , file);
+    printf("%s\n" , last_line);
 }

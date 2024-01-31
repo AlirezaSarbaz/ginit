@@ -21,6 +21,9 @@ int main(int argc , char* argv[]) {
         else if (!strcmp(argv[1] , "add")) {
             run_add(argc , argv);
         }
+        else if (!strcmp(argv[1] , "commit")) {
+            run_commit(argc , argv);
+        }
         update_stages();
     }
     FILE* file = fopen(".ginit/time" , "w+");
