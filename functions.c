@@ -8,6 +8,7 @@
 #include <sys/types.h>
 
 #define MAX_ADDRESS_LENGHT 1024
+#define MAX_LINE_LENGHT 1024
 
 int check_ginit_exist();
 void run_init();
@@ -59,21 +60,22 @@ void run_init() {
 }
 void run_config(int argc , char* argv[]) {
     if (!strcmp(argv[2] , "-global")) {
-        //FILE* local_config = fopen(".ginit/config" , "wb");
+        FILE* local_config = fopen(".ginit/config" , "wb");
         const char* home = getenv("HOME"); chdir(home);
         FILE* global_config = fopen(".ginitconfig" , "r+");
-        char line[1024];
-        while (fgets(line, sizeof(line), global_config)) {
-            char *found = strstr(line, argv[3]);
-            if (found != NULL) {
-                printf("%d\n" , ftell(global_config));
-                fseek(global_config, -strlen(line), SEEK_CUR);
-                printf("%d\n" , ftell(global_config));
-                fprintf(global_config, "%s : %s", argv[3] ,argv[4]);
-            }
+        char line[MAX_LINE_LENGHT] , tmp1[20] , tmp2[20] , username[100] , email[100];
+        fgets(line , sizeof(line) , global_config); fclose(global_config); fopen(".ginitconfig" , "w");
+        sscanf(line , "%s : %s %s : %s" , tmp1 , username , tmp2 , email);
+        if (!strcmp(argv[3] , "username")) {
+            strcpy(username , argv[4]);
+            fprintf(global_config , "%s : %s %s : %s" , tmp1 , username , tmp2 , email);
         }
-        fclose(global_config); //fopen(".ginitconfig" , "rb");
-        //copy_file_source_to_dest(local_config , global_config);
+        else if (!strcmp(argv[3] , "email")) {
+            strcpy(email , argv[4]);
+            fprintf(global_config , "%s : %s %s : %s" , tmp1 , username , tmp2 , email);
+        }
+        fclose(global_config); fopen(".ginitconfig" , "rb");
+        copy_file_source_to_dest(local_config , global_config);
     }
     else {
 
