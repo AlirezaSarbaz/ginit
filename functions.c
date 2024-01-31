@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <time.h>
 
 #define MAX_ADDRESS_LENGTH 1024
 #define MAX_LINE_LENGTH 1024
@@ -14,10 +15,14 @@ int check_ginit_exist();
 void run_init();
 void copy_file_source_to_dest(FILE* dest , FILE* source);
 
+void run_add(int argc, char *const argv[]);
 int exist_file_or_dir(const char* filepath);
 void list_files_recursively(const char* basePath , const char* filename , int depth);
+int add_to_tracking(int argc , char* argv[]);
+int check_files_modified(const char* file_path);
+void update_stages();
 
-int is_track(char* pathspec);
+int is_stage(char* pathspec);
 
 int check_ginit_exist() {
     char cwd[MAX_ADDRESS_LENGTH];
@@ -60,10 +65,10 @@ void run_init() {
     FILE* global_config = fopen(".ginitconfig" , "rb");
     copy_file_source_to_dest(local_config , global_config);
     chdir(cwd);
-    FILE* file = fopen(".ginit/staging" , "w"); fclose(file);
+    FILE* file = fopen(".ginit/stages" , "w"); fclose(file);
     file = fopen(".ginit/tracks" , "w"); fclose(file);
-    //file = fopen(".ginit/tracks" , "w"); fclose(file);
-    //file = fopen(".ginit/HEAD" , "w"); fclose(file);
+    file = fopen(".ginit/filesdata" , "w"); fclose(file);
+    file = fopen(".ginit/time" , "w"); fclose(file);
 }
 void copy_file_source_to_dest(FILE* dest , FILE* source) {
     char buffer[MAX_LINE_LENGTH];
@@ -79,11 +84,13 @@ void run_add(int argc, char *const argv[]) {
         perror("please specify a file or directory\n");
         exit(EXIT_FAILURE);
     }
-    add_to_staging(argc , argv);
+    add_to_tracking(argc , argv);
 }
-int add_to_staging(int argc , char* argv[]) {
+int add_to_tracking(int argc , char* argv[]) {
+    char cwd[MAX_ADDRESS_LENGTH];
+    getcwd(cwd , sizeof(cwd));
     if (argc == 3 && !strcmp(argv[2] , "-redo")) {
-        // دستور redo
+    // دستور redo
     }
     else if (argc == 3) {
         if (exist_file_or_dir(argv[2]) == -1) {
@@ -93,21 +100,24 @@ int add_to_staging(int argc , char* argv[]) {
         else if (exist_file_or_dir(argv[2]) == DT_REG) {
             if (!is_track(argv[2])) {
                 FILE* file = fopen(".ginit/tracks" , "a");
-                fprintf(file , "%s 1\n" ,argv[2]);
-                fclose(file);
+                char path[MAX_ADDRESS_LENGTH]; char cwd[MAX_ADDRESS_LENGTH];
+                getcwd(cwd , sizeof(cwd));
+                sprintf(path , "%s/%s" , cwd , argv[2]);
+                fprintf(file , "%s %s 1\n" ,argv[2] , path); fclose(file);
             }
         }
         else if (exist_file_or_dir(argv[2]) == DT_DIR) {
             if (!is_track(argv[2])) {
                 FILE* file = fopen(".ginit/tracks" , "a");
-                fprintf(file , "%s 1\n" ,argv[2]); fclose(file);
                 char path[MAX_ADDRESS_LENGTH]; char cwd[MAX_ADDRESS_LENGTH];
                 getcwd(cwd , sizeof(cwd));
                 sprintf(path , "%s/%s" , cwd , argv[2]);
+                fprintf(file , "%s %s 1\n" ,argv[2] , path); fclose(file);
                 list_files_recursively(path , ".ginit/tracks" , 2);
             }
         }
     }
+    chdir(cwd);
     return 0;
 }
 int exist_file_or_dir(const char* pathspec) {
@@ -139,12 +149,13 @@ void list_files_recursively(const char* basePath , const char* filename , int de
         if (entry->d_type == DT_DIR) {
             if (strcmp(entry->d_name , ".") && strcmp(entry->d_name , "..")) {
                 sprintf(path , "%s/%s" , basePath , entry->d_name);
-                fprintf(file , "%s %d\n" , entry->d_name , depth);
+                fprintf(file , "%s %s %d\n" , entry->d_name ,path , depth);
                 list_files_recursively(path , filename , depth + 1);
             }
         }
         else {
-            fprintf(file , "%s %d\n" , entry->d_name , depth);
+            sprintf(path , "%s/%s" , basePath , entry->d_name);
+            fprintf(file , "%s %s %d\n" , entry->d_name ,path, depth);
         }
         fclose(file);
     }
@@ -157,6 +168,61 @@ int is_track(char* pathspec) {
         char *found = strstr(line, pathspec);
         if (found != NULL) {
             return 1;
+        }
+    }
+    fclose(file);
+    return 0; 
+}
+int is_stage(char* pathspec) {
+    FILE* file= fopen(".ginit/stages" , "r+");
+    char line[MAX_LINE_LENGTH];
+    while (fgets(line, sizeof(line), file)) {
+        char *found = strstr(line, pathspec);
+        if (found != NULL) {
+            return 1;
+        }
+    }
+    fclose(file);
+    return 0; 
+}
+int check_files_modified(const char* file_path) {
+    FILE* file = fopen(".ginit/time" , "r+");
+    time_t time;
+    fscanf(file , "%ld" , &time); fclose(file);
+    struct stat file_info;
+    if (!stat(file_path, &file_info)) {
+        time_t last_modified_time = file_info.st_mtime;
+        if (time < last_modified_time) {
+            return 1;
+        } else {
+            return 0;
+        }
+    } else {
+        exit(EXIT_FAILURE);
+    }
+}
+void update_stages() {
+    FILE* file= fopen(".ginit/tracks" , "r+");
+    char line[MAX_LINE_LENGTH];
+    while (fgets(line, sizeof(line), file)) {
+        char a[MAX_LINE_LENGTH] , b[MAX_LINE_LENGTH]; int depth;
+        sscanf(line , "%s %s %d" , a , b , &depth);
+        if (check_files_modified(b)) {
+            long pos = ftell(file); 
+            FILE *temp = fopen(".ginit/temp", "w");
+            fseek(file, 0, SEEK_SET);
+            char buffer[MAX_LINE_LENGTH];
+            while (fgets(buffer, sizeof(buffer), file)) {
+                if (ftell(file) != pos) {
+                    fputs(buffer, temp);
+                }
+            }
+            fclose(file);
+            if (temp != NULL) {
+                fclose(temp);
+            }
+            remove(".ginit/tracks");
+            rename(".ginit/temp", ".ginit/tracks");
         }
     }
     fclose(file);
