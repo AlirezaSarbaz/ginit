@@ -13,7 +13,6 @@
 #define MAX_BRANCH_NAME 100
 #define MAX_EMAIL_USERNAME_LENGHT 100
 #define MAX_FILENAME 100
-#define MAX_ADDRESS_LENGHT 1024
 #define MAX_LINE_LENGHT 1024
 
 int check_ginit_exist();
@@ -34,10 +33,11 @@ int is_directory_or_file(const char* path);
 void update_modified();
 void update_deleted();
 void update_added();
-
+int is_ok_for_checkout();
+void run_checkout(char* argv[]);
+void remove_tracks();
 
 void run_config(int argc , char* argv[]);
-void copy_file_source_to_dest(FILE* dest , FILE* source);
 
 int check_ginit_exist() {
     char cwd[MAX_ADDRESS_LENGTH];
@@ -81,7 +81,7 @@ void run_init() {
     FILE* global_config = fopen(".ginitconfig" , "rb");
     copy_file_source_to_dest(local_config , global_config);
     chdir(cwd);
-    mkdir(".ginit/refs" , 0755); mkdir(".ginit/commits" , 0755);
+    mkdir(".ginit/refs" , 0755); mkdir(".ginit/commits" , 0755); mkdir(".ginit/branches" , 0755);
     FILE* file = fopen(".ginit/refs/stages" , "w"); fclose(file);
     file = fopen(".ginit/refs/tracks" , "w"); fclose(file);
     file = fopen(".ginit/refs/allfiles" , "w"); fclose(file);
@@ -89,9 +89,11 @@ void run_init() {
     file = fopen(".ginit/refs/deleted" , "w"); fclose(file);
     file = fopen(".ginit/refs/added" , "w"); fclose(file);
     file = fopen(".ginit/refs/modified" , "w"); fclose(file);
+    file = fopen(".ginit/commit_ids" , "w"); fprintf(file , "00000000\n"); fclose(file);
     file = fopen(".ginit/time" , "w"); fclose(file);
+    file = fopen(".ginit/branches/master" , "w"); fprintf(file , "00000000");fclose(file);
     file = fopen(".ginit/HEAD" , "w"); fprintf(file , "00000000 master");fclose(file);
-    file = fopen(".ginit/branches" , "w"); fprintf(file , "00000000 master\n");fclose(file);
+    file = fopen(".ginit/branch" , "w"); fprintf(file , "master\n");fclose(file);
     file = fopen(".ginit/logs" , "w"); fclose(file);
 }
 void copy_file_source_to_dest(FILE* dest , FILE* src) {
@@ -248,12 +250,15 @@ void run_commit(int argc , char* argv[]) {
     fgets(line , sizeof(line) , head);
     sscanf(line , "%s %s" , current_commit_id , current_branch);
     fseek(head , 0 , SEEK_SET); fprintf(head , "%s %s" , commit_id , current_branch);fclose(head);
+    char branch_path[MAX_ADDRESS_LENGTH]; sprintf(branch_path , ".ginit/branches/%s" , current_branch);
+    FILE* branch = fopen(branch_path , "w"); fprintf(branch ,"%s" , commit_id); fclose(branch);
+    FILE* commit_ids = fopen(".ginit/commit_ids" , "a"); fprintf(commit_ids , "%s\n" , commit_id); fclose(commit_ids);
     copy_stagedfiles_to_commit_dir(commit_id);
     FILE* stages = fopen(".ginit/refs/stages" , "w"); fclose(stages);
-    FILE* deleted = fopen(".ginit/refs/deleted" , "w"); fclose(stages);
-    FILE* added = fopen(".ginit/refs/added" , "w"); fclose(stages);
-    FILE* modified = fopen(".ginit/refs/modified" , "w"); fclose(stages);
-    FILE* allfiles_copy = fopen(".ginit/refs/allfiles_copy" , "w"); fclose(stages);
+    FILE* deleted = fopen(".ginit/refs/deleted" , "w"); fclose(deleted);
+    FILE* added = fopen(".ginit/refs/added" , "w"); fclose(added);
+    FILE* modified = fopen(".ginit/refs/modified" , "w"); fclose(modified);
+    FILE* allfiles_copy = fopen(".ginit/refs/allfiles_copy" , "w"); fclose(allfiles_copy);
     char cwd[MAX_ADDRESS_LENGTH]; getcwd(cwd , sizeof(cwd));
     int l = strlen(cwd) + 1;
     list_files_recursively(cwd , ".ginit/refs/allfiles_copy" , 1 , l);
@@ -329,7 +334,9 @@ void run_branch(int argc , char* argv[]) {
         FILE* head = fopen(".ginit/HEAD" , "r");
         char current_commit_id[9] , line[MAX_LINE_LENGTH];
         fgets(line , sizeof(line) , head); sscanf(line , "%s " , current_commit_id ); fclose(head);
-        FILE* branches = fopen(".ginit/branches" , "a"); fprintf(branches , "%s %s\n" , current_commit_id , argv[2]); fclose(branches);
+        FILE* branches = fopen(".ginit/branch" , "a"); fprintf(branches , "%s\n" ,argv[2]); fclose(branches);
+        char path[MAX_ADDRESS_LENGTH]; sprintf(path , ".ginit/branches/%s" , argv[2]);
+        FILE* branch = fopen(path , "w"); fprintf(branch , "%s" , current_commit_id);
     }
 }
 void update_modified() {
@@ -392,11 +399,56 @@ void run_config(int argc , char* argv[]) {
 
     }
 }
-void copy_file_source_to_dest(FILE* dest , FILE* source) {
-    char buffer[1024];
-    size_t bytes_read;
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), source)) > 0) {
-        fwrite(buffer, 1, bytes_read, dest);
+int is_ok_for_checkout(){
+   FILE* file = fopen(".ginit/refs/allfiles" , "r+");
+    char line[MAX_LINE_LENGTH] , tmp[MAX_ADDRESS_LENGTH];
+    while (fgets(line, sizeof(line), file)) {
+        sscanf(line , "%s " , tmp);
+        if (is_in_a_ref_file(tmp , ".ginit/refs/tracks") && is_in_a_ref_file(tmp , ".ginit/refs/modified") && !is_in_a_ref_file(tmp , ".ginit/refs/stages")) {
+            return 0;
+        }
     }
-    fclose(dest); fclose(source);
+    fclose(file);
+    return 1;
+}
+void run_checkout(char* argv[]) {
+    if (!is_in_a_ref_file(argv[2] , ".ginit/commit_ids") && !is_in_a_ref_file(argv[2] , ".ginit/branch")) {
+        fprintf(stderr,"pathspec \"%s\" dosen't match any branch or commit\n" , argv[2]);
+        exit(EXIT_FAILURE);
+    }
+    else if (is_in_a_ref_file(argv[2] , ".ginit/commit_ids")) {
+        char path[MAX_ADDRESS_LENGTH] , mvCommand[MAX_ADDRESS_LENGTH]; char cwd[MAX_ADDRESS_LENGTH]; getcwd(cwd , sizeof(cwd));
+        remove_tracks();
+        sprintf(path , "%s/.ginit/commits/%s/*" , cwd ,argv[2]);
+        sprintf(mvCommand , "cp -r %s %s" , path , cwd);
+        system(mvCommand);
+    }
+    /*else if () {
+
+    }*/
+    /*if () {
+        //handle HEAD
+    }
+    if () {
+        //handle HEAD-n
+    }*/
+}
+void remove_tracks() {
+    FILE* file = fopen(".ginit/refs/tracks" , "r+");
+    char line[MAX_LINE_LENGTH] , tmp[MAX_ADDRESS_LENGTH] , tmp2[MAX_ADDRESS_LENGTH] , rmCommand[MAX_ADDRESS_LENGTH];
+    while (fgets(line, sizeof(line), file)) {
+        sscanf(line , "%s %s " , tmp , tmp2);
+        if (access(tmp2 , F_OK) != -1) {
+            if (!is_directory_or_file(tmp2)) {
+                sprintf(rmCommand , "rm %s" , tmp2);
+                system(rmCommand);
+            }
+            else {
+                sprintf(rmCommand , "rm -r %s" , tmp2);
+                system(rmCommand);
+            }
+        }
+    }
+    fclose(file);
+    return 0;
 }
