@@ -42,5 +42,9 @@ int main(int argc , char* argv[]) {
     }
     FILE* file = fopen(".ginit/time" , "w+");
     fprintf(file , "%ld" , time(NULL)); fclose(file);
+    else if (!strcmp(argv[1] , "config")) {
+        run_config(argc , argv);
+    }
+    
     return 0;
 }

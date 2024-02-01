@@ -13,6 +13,8 @@
 #define MAX_BRANCH_NAME 100
 #define MAX_EMAIL_USERNAME_LENGHT 100
 #define MAX_FILENAME 100
+#define MAX_ADDRESS_LENGHT 1024
+#define MAX_LINE_LENGHT 1024
 
 int check_ginit_exist();
 void run_init();
@@ -32,6 +34,10 @@ int is_directory_or_file(const char* path);
 void update_modified();
 void update_deleted();
 void update_added();
+
+
+void run_config(int argc , char* argv[]);
+void copy_file_source_to_dest(FILE* dest , FILE* source);
 
 int check_ginit_exist() {
     char cwd[MAX_ADDRESS_LENGTH];
@@ -69,6 +75,7 @@ void run_init() {
     mkdir(".ginit" , 0755);
     char cwd[MAX_ADDRESS_LENGTH];
     getcwd(cwd , sizeof(cwd));
+
     FILE* local_config = fopen(".ginit/config" , "wb");
     const char* home = getenv("HOME"); chdir(home);
     FILE* global_config = fopen(".ginitconfig" , "rb");
@@ -360,4 +367,36 @@ void update_added() {
         }
     }
     fclose(file);
+
+}
+void run_config(int argc , char* argv[]) {
+    if (!strcmp(argv[2] , "-global")) {
+        FILE* local_config = fopen(".ginit/config" , "wb");
+        const char* home = getenv("HOME"); chdir(home);
+        FILE* global_config = fopen(".ginitconfig" , "r+");
+        char line[MAX_LINE_LENGHT] , tmp1[20] , tmp2[20] , username[100] , email[100];
+        fgets(line , sizeof(line) , global_config); fclose(global_config); fopen(".ginitconfig" , "w");
+        sscanf(line , "%s : %s %s : %s" , tmp1 , username , tmp2 , email);
+        if (!strcmp(argv[3] , "username")) {
+            strcpy(username , argv[4]);
+            fprintf(global_config , "%s : %s %s : %s" , tmp1 , username , tmp2 , email);
+        }
+        else if (!strcmp(argv[3] , "email")) {
+            strcpy(email , argv[4]);
+            fprintf(global_config , "%s : %s %s : %s" , tmp1 , username , tmp2 , email);
+        }
+        fclose(global_config); fopen(".ginitconfig" , "rb");
+        copy_file_source_to_dest(local_config , global_config);
+    }
+    else {
+
+    }
+}
+void copy_file_source_to_dest(FILE* dest , FILE* source) {
+    char buffer[1024];
+    size_t bytes_read;
+    while ((bytes_read = fread(buffer, 1, sizeof(buffer), source)) > 0) {
+        fwrite(buffer, 1, bytes_read, dest);
+    }
+    fclose(dest); fclose(source);
 }
