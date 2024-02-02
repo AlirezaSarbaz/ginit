@@ -9,6 +9,8 @@
 #include <time.h>
 #include <ctype.h>
 
+#define min(a , b)  ((a > b) ? b : a)
+
 #define MAX_ADDRESS_LENGTH 1024
 #define MAX_LINE_LENGTH 1024
 #define MAX_BRANCH_NAME 100
@@ -28,7 +30,7 @@ void update_stages();
 void run_commit(int argc , char* argv[]);
 int is_in_a_ref_file(const char* pathspec , const char* ref_filename);
 void add_to_logs(char* argv[] , const char* commit_id);
-void copy_stagedfiles_to_commit_dir(const char* commit_id);
+void copy_stagedfiles_to_commit_dir(const char* commit_id , const char* new_stage_path);
 int is_directory_or_file(const char* path);
 void update_modified();
 void update_deleted();
@@ -36,10 +38,11 @@ void update_added();
 int is_ok_for_checkout();
 void run_checkout(char* argv[]);
 void remove_tracks();
-void remove_nullspaces(char* filename1 , char* filename2);
+void remove_nullspaces(char* filename1 , int begin , int end);
 void run_diff(int argc , char* argv[]);
-int is_blanck_line(const char* line);
-
+int is_blanck_line(const char* line , int length);
+void find_diffs (const char* file1_name , const char* file2_name);
+int number_of_lines(FILE* file);
 void run_config(int argc , char* argv[]);
 
 int check_ginit_exist() {
@@ -249,8 +252,6 @@ void run_commit(int argc , char* argv[]) {
     sprintf(path , ".ginit/commits/%s" , commit_id);
     mkdir(path , 0755);
     sprintf(stage_address , "%s/stages" , path);
-    FILE* new_stage = fopen(stage_address , "wb+"); FILE* stage = fopen(".ginit/refs/stages" , "rb");
-    copy_file_source_to_dest(new_stage , stage);
     add_to_logs(argv , commit_id);
     FILE* head = fopen(".ginit/HEAD" , "r+");
     fgets(line , sizeof(line) , head);
@@ -259,7 +260,7 @@ void run_commit(int argc , char* argv[]) {
     char branch_path[MAX_ADDRESS_LENGTH]; sprintf(branch_path , ".ginit/branches/%s" , current_branch);
     FILE* branch = fopen(branch_path , "w"); fprintf(branch ,"%s" , commit_id); fclose(branch);
     FILE* commit_ids = fopen(".ginit/commit_ids" , "a"); fprintf(commit_ids , "%s\n" , commit_id); fclose(commit_ids);
-    copy_stagedfiles_to_commit_dir(commit_id);
+    copy_stagedfiles_to_commit_dir(commit_id , stage_address);
     FILE* stages = fopen(".ginit/refs/stages" , "w"); fclose(stages);
     FILE* deleted = fopen(".ginit/refs/deleted" , "w"); fclose(deleted);
     FILE* added = fopen(".ginit/refs/added" , "w"); fclose(added);
@@ -293,21 +294,21 @@ void add_to_logs(char* argv[] , const char* commit_id) {
     fprintf(file , "%s %s %s <%s> %ld %s \"%s\"\n" ,current_commit_id , commit_id , username , email , time(NULL) , current_branch , argv[3] );
     fclose(file); fclose(head); fclose(config);
 }
-void copy_stagedfiles_to_commit_dir(const char* commit_id) {
+void copy_stagedfiles_to_commit_dir(const char* commit_id , const char* new_stage_path) {
     FILE* tracks = fopen(".ginit/refs/stages" , "r");
     if (tracks == NULL) {
         perror("Error opening file");
         fclose(tracks);
         exit(EXIT_FAILURE);
     }
-    char line[MAX_LINE_LENGTH] , name[MAX_FILENAME] , address[MAX_ADDRESS_LENGTH] , cwd[MAX_ADDRESS_LENGTH] ,new_path[MAX_ADDRESS_LENGTH] , new_address[MAX_ADDRESS_LENGTH];
+    char line[MAX_LINE_LENGTH] , name[MAX_FILENAME] , address[MAX_ADDRESS_LENGTH] , cwd[MAX_ADDRESS_LENGTH] ,new_path[MAX_ADDRESS_LENGTH];
     getcwd(cwd , sizeof(cwd));
     int l = strlen(cwd) + 1;
+    FILE* new_stage = fopen(new_stage_path , "a");
     while (fgets(line , sizeof(line) , tracks)) {
         sscanf(line , "%s %s " , name , address);
-        strcpy(new_address , address);
-        memmove(new_address , new_address + l , strlen(new_address) - l + 1);
-        sprintf(new_path , "%s/.ginit/commits/%s/%s" , cwd , commit_id , new_address);
+        sprintf(new_path , "%s/.ginit/commits/%s/%s" , cwd , commit_id , name);
+        fprintf(new_stage ,"%s %s\n" , name , new_path);
         if (is_directory_or_file(address)) {
             mkdir(new_path , 0755);
         }
@@ -325,7 +326,7 @@ void copy_stagedfiles_to_commit_dir(const char* commit_id) {
             copy_file_source_to_dest(dest , src);
         }
     }
-    fclose(tracks);
+    fclose(tracks); fclose(new_stage);
 }
 int is_directory_or_file(const char* path) {
     struct stat path_stat;
@@ -468,14 +469,23 @@ void remove_tracks() {
     }
     fclose(file);
 }
-void remove_nullspaces(char* filename1 , char* filename2) {
-    char file1_path[MAX_ADDRESS_LENGTH] , file2_path[MAX_ADDRESS_LENGTH] , file1_copy_path[MAX_ADDRESS_LENGTH] , file2_copy_path[MAX_ADDRESS_LENGTH] , cwd[MAX_ADDRESS_LENGTH] , line[MAX_LINE_LENGTH];
+void remove_nullspaces(char* filename1 , int begin , int end) {
+    char file_path[MAX_ADDRESS_LENGTH], file_copy_path[MAX_ADDRESS_LENGTH] , cwd[MAX_ADDRESS_LENGTH] , line[MAX_LINE_LENGTH];
+    int counter = 1;
     getcwd(cwd , sizeof(cwd));
-    sprintf(file1_path , "%s/%s" , cwd , filename1); sprintf(file2_path , "%s/%s" , cwd , filename2);
-    sprintf(file1_copy_path , "%s/.ginit/%s_copy" , cwd , filename1); sprintf(file2_copy_path , "%s/.ginit/%s_copy" , cwd , filename2);
-    FILE* input = fopen(file1_path , "r+"); FILE* output = fopen(file1_copy_path , "w");
-    while (fgets(line , sizeof(line) , input)) {
-        printf("%d\n" , is_blanck_line(line));
+    sprintf(file_path , "%s/%s" , cwd , filename1);
+    sprintf(file_copy_path , "%s/.ginit/%s_copy" , cwd , filename1);
+    FILE* input = fopen(file_path , "r"); FILE* output = fopen(file_copy_path , "w");
+    while (fgets(line , sizeof(line) , input) != NULL) {
+        int length = strlen(line);
+        line[length - 1] = '\0';
+        if (!is_blanck_line(line , length - 1)){
+            if (counter >= begin && counter <= end) { 
+                line[length - 1] = '\n';
+                fprintf(output , "%s" , line);
+            }  
+            counter ++;
+        }
     }
     fclose(input); fclose(output);
 }
@@ -493,17 +503,57 @@ void run_diff(int argc , char* argv[]) {
         if (flag) {
             exit(EXIT_FAILURE);
         }
-        remove_nullspaces(argv[3] , argv[4]);
+        if (argc == 5) {
+            remove_nullspaces(argv[3] , 1 , 10000); remove_nullspaces(argv[4] , 1 , 10000);
+            find_diffs(argv[3] , argv[4]);
+        }
+        else if (argc == 9) {
+            int end1 , end2 , begin1 , begin2;
+            sscanf(argv[6] , "%d-%d" , &begin1 , &end1); sscanf(argv[8] , "%d-%d" , &begin2 , &end2);
+            remove_nullspaces(argv[3] , begin1 , end1); remove_nullspaces(argv[4] , begin2 , end2);
+            find_diffs(argv[3] , argv[4]);
+        }
     }
-    /*else if (!strcmp(argv[1] , "-c")) {
-
-    }*/
+    else if (!strcmp(argv[2] , "-c")) {
+        
+    }
 }
-int is_blanck_line(const char* line) {
-    while (*line) {
-        if (!isspace((unsigned char)* line)) {
+int is_blanck_line(const char* line , int length) {
+   for (int i = 0; i < length; i++) {
+        if (!isspace(line[i])) {
             return 0;
         }
     }
     return 1;
+}
+void find_diffs (const char* file1_name , const char* file2_name) {
+    char file1_path[MAX_ADDRESS_LENGTH], file2_path[MAX_ADDRESS_LENGTH] , cwd[MAX_ADDRESS_LENGTH] , line1[MAX_LINE_LENGTH] , line2[MAX_LINE_LENGTH];
+    getcwd(cwd , sizeof(cwd));
+    sprintf(file1_path , "%s/.ginit/%s_copy" , cwd , file1_name);
+    sprintf(file2_path , "%s/.ginit/%s_copy" , cwd , file2_name);
+    FILE* file1 = fopen(file1_path , "r"); FILE* file2 = fopen(file2_path , "r");
+    int num1 = number_of_lines(file1) , num2 = number_of_lines(file2); fclose(file1); fclose(file2);
+    file1 = fopen(file1_path , "r"); file2 = fopen(file2_path , "r");
+    for (int i = 0; i < min(num1 , num2); i++) {
+        fgets(line1 , sizeof(line1) , file1); fgets(line2 , sizeof(line2) , file2);
+        if (strcmp(line1 , line2)) {
+            printf("<<<<<\nfilename : %s - line nember : %d\n", file1_name , i + 1);
+            printf("\033[1;31m%s\033[0m" , line1);
+            printf("filename : %s - line nember : %d\n", file2_name , i + 1);
+            printf("\033[1;34m%s\033[0m" , line2);
+            printf(">>>>>\n");
+        }
+    }
+    fclose(file1); fclose(file2);
+    remove(file1_path); remove(file2_path);
+}
+int number_of_lines(FILE* file) {
+    int lineCount = 0;
+    int currentChar;
+    while ((currentChar = fgetc(file)) != EOF) {
+        if (currentChar == '\n') {
+            lineCount++;
+        }
+    }
+    return lineCount;
 }

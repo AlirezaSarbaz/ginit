@@ -57,10 +57,11 @@ int main(int argc , char* argv[]) {
             else {
                 run_checkout(argv);
             }
+            
         }
     }
     FILE* file = fopen(".ginit/time" , "w+");
     fprintf(file , "%ld" , time(NULL)); fclose(file);
-    
+
     return 0;
 }
