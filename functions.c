@@ -7,13 +7,13 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <time.h>
+#include <ctype.h>
 
 #define MAX_ADDRESS_LENGTH 1024
 #define MAX_LINE_LENGTH 1024
 #define MAX_BRANCH_NAME 100
 #define MAX_EMAIL_USERNAME_LENGHT 100
 #define MAX_FILENAME 100
-#define MAX_LINE_LENGHT 1024
 
 int check_ginit_exist();
 void run_init();
@@ -36,6 +36,9 @@ void update_added();
 int is_ok_for_checkout();
 void run_checkout(char* argv[]);
 void remove_tracks();
+void remove_nullspaces(char* filename1 , char* filename2);
+void run_diff(int argc , char* argv[]);
+int is_blanck_line(const char* line);
 
 void run_config(int argc , char* argv[]);
 
@@ -241,10 +244,13 @@ void update_stages() {
     fclose(file);
 }
 void run_commit(int argc , char* argv[]) {
-    char path[MAX_ADDRESS_LENGTH] , commit_id[9] , line[MAX_LINE_LENGTH] , current_commit_id[9] , current_branch[MAX_BRANCH_NAME];
+    char path[MAX_ADDRESS_LENGTH] , commit_id[9] , line[MAX_LINE_LENGTH] , current_commit_id[9] , current_branch[MAX_BRANCH_NAME] , stage_address[MAX_ADDRESS_LENGTH];
     strcpy(commit_id , generate_commit_id());
     sprintf(path , ".ginit/commits/%s" , commit_id);
     mkdir(path , 0755);
+    sprintf(stage_address , "%s/stages" , path);
+    FILE* new_stage = fopen(stage_address , "wb+"); FILE* stage = fopen(".ginit/refs/stages" , "rb");
+    copy_file_source_to_dest(new_stage , stage);
     add_to_logs(argv , commit_id);
     FILE* head = fopen(".ginit/HEAD" , "r+");
     fgets(line , sizeof(line) , head);
@@ -381,7 +387,7 @@ void run_config(int argc , char* argv[]) {
         FILE* local_config = fopen(".ginit/config" , "wb");
         const char* home = getenv("HOME"); chdir(home);
         FILE* global_config = fopen(".ginitconfig" , "r+");
-        char line[MAX_LINE_LENGHT] , tmp1[20] , tmp2[20] , username[100] , email[100];
+        char line[MAX_LINE_LENGTH] , tmp1[20] , tmp2[20] , username[100] , email[100];
         fgets(line , sizeof(line) , global_config); fclose(global_config); fopen(".ginitconfig" , "w");
         sscanf(line , "%s : %s %s : %s" , tmp1 , username , tmp2 , email);
         if (!strcmp(argv[3] , "username")) {
@@ -412,24 +418,35 @@ int is_ok_for_checkout(){
     return 1;
 }
 void run_checkout(char* argv[]) {
-    if (!is_in_a_ref_file(argv[2] , ".ginit/commit_ids") && !is_in_a_ref_file(argv[2] , ".ginit/branch")) {
+    if (!strcmp(argv[2] , "HEAD")) {
+        char HEAD_commit_id[9] , path[MAX_ADDRESS_LENGTH] , mvCommand[MAX_ADDRESS_LENGTH] , cwd[MAX_ADDRESS_LENGTH]; getcwd(cwd , sizeof(cwd));
+        FILE* file = fopen(".ginit/HEAD" , "r"); fscanf(file , "%s " , HEAD_commit_id); fclose(file);
+        remove_tracks();
+        sprintf(path , "%s/.ginit/commits/%s/*" , cwd ,HEAD_commit_id);
+        sprintf(mvCommand , "cp -r %s %s" , path , cwd);
+        system(mvCommand);
+    }
+    else if (!is_in_a_ref_file(argv[2] , ".ginit/commit_ids") && !is_in_a_ref_file(argv[2] , ".ginit/branch")) {
         fprintf(stderr,"pathspec \"%s\" dosen't match any branch or commit\n" , argv[2]);
         exit(EXIT_FAILURE);
     }
     else if (is_in_a_ref_file(argv[2] , ".ginit/commit_ids")) {
-        char path[MAX_ADDRESS_LENGTH] , mvCommand[MAX_ADDRESS_LENGTH]; char cwd[MAX_ADDRESS_LENGTH]; getcwd(cwd , sizeof(cwd));
+        char path[MAX_ADDRESS_LENGTH] , mvCommand[MAX_ADDRESS_LENGTH] , cwd[MAX_ADDRESS_LENGTH]; getcwd(cwd , sizeof(cwd));
         remove_tracks();
         sprintf(path , "%s/.ginit/commits/%s/*" , cwd ,argv[2]);
         sprintf(mvCommand , "cp -r %s %s" , path , cwd);
         system(mvCommand);
     }
-    /*else if () {
-
-    }*/
-    /*if () {
-        //handle HEAD
+    else if (is_in_a_ref_file(argv[2] , ".ginit/branch")) {
+        char path[MAX_ADDRESS_LENGTH] , mvCommand[MAX_ADDRESS_LENGTH] , cwd[MAX_ADDRESS_LENGTH] , commit_id[9] , branch_path[MAX_ADDRESS_LENGTH]; getcwd(cwd , sizeof(cwd));
+        sprintf(branch_path , ".ginit/branches/%s" , argv[2]);
+        FILE* file = fopen(branch_path , "r"); fscanf(file , "%s " , commit_id); fclose(file);
+        remove_tracks();
+        sprintf(path , "%s/.ginit/commits/%s/*" , cwd ,commit_id);
+        sprintf(mvCommand , "cp -r %s %s" , path , cwd);
+        system(mvCommand);
     }
-    if () {
+    /*if () {
         //handle HEAD-n
     }*/
 }
@@ -450,5 +467,43 @@ void remove_tracks() {
         }
     }
     fclose(file);
-    return 0;
+}
+void remove_nullspaces(char* filename1 , char* filename2) {
+    char file1_path[MAX_ADDRESS_LENGTH] , file2_path[MAX_ADDRESS_LENGTH] , file1_copy_path[MAX_ADDRESS_LENGTH] , file2_copy_path[MAX_ADDRESS_LENGTH] , cwd[MAX_ADDRESS_LENGTH] , line[MAX_LINE_LENGTH];
+    getcwd(cwd , sizeof(cwd));
+    sprintf(file1_path , "%s/%s" , cwd , filename1); sprintf(file2_path , "%s/%s" , cwd , filename2);
+    sprintf(file1_copy_path , "%s/.ginit/%s_copy" , cwd , filename1); sprintf(file2_copy_path , "%s/.ginit/%s_copy" , cwd , filename2);
+    FILE* input = fopen(file1_path , "r+"); FILE* output = fopen(file1_copy_path , "w");
+    while (fgets(line , sizeof(line) , input)) {
+        printf("%d\n" , is_blanck_line(line));
+    }
+    fclose(input); fclose(output);
+}
+void run_diff(int argc , char* argv[]) {
+    if (!strcmp(argv[2] , "-f")) {
+        int flag = 0;
+        if (!is_in_a_ref_file(argv[3] , ".ginit/refs/allfiles")) {
+            fprintf(stderr , "the file %s not exist.\n" , argv[3]);
+            flag ++;
+        }
+        if (!is_in_a_ref_file(argv[4], ".ginit/refs/allfiles")) {
+            fprintf(stderr , "the file %s not exist.\n" , argv[4]);
+            flag ++;
+        }
+        if (flag) {
+            exit(EXIT_FAILURE);
+        }
+        remove_nullspaces(argv[3] , argv[4]);
+    }
+    /*else if (!strcmp(argv[1] , "-c")) {
+
+    }*/
+}
+int is_blanck_line(const char* line) {
+    while (*line) {
+        if (!isspace((unsigned char)* line)) {
+            return 0;
+        }
+    }
+    return 1;
 }

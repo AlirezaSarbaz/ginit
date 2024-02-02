@@ -46,6 +46,9 @@ int main(int argc , char* argv[]) {
         else if (!strcmp(argv[1] , "config")) {
             run_config(argc , argv);
         }
+        else if (!strcmp(argv[1] , "diff")) {
+            run_diff(argc , argv);
+        }
         else if (!strcmp(argv[1] , "checkout")) {
             if (!is_ok_for_checkout()) {
                 perror("please commit your changes or stash them before you checkout\n");
