@@ -30,9 +30,9 @@ int main(int argc , char* argv[]) {
         int l = strlen(cwd) + 1;
         FILE* file = fopen(".ginit/refs/allfiles" , "w");fclose(file);
         list_files_recursively(cwd , ".ginit/refs/allfiles" , 1 , l);
+        update_deleted();
         update_stages();
         update_modified();
-        update_deleted();
         update_added();
         if (!strcmp(argv[1] , "add")) {
             run_add(argc , argv);

@@ -44,6 +44,7 @@ int is_blanck_line(const char* line , int length);
 void find_diffs (const char* file1_name , const char* file2_name);
 int number_of_lines(FILE* file);
 void run_config(int argc , char* argv[]);
+void run_diff_for_commit(const char* address1 , const char* address2 , const char* name , const char* commit_id1 , const char* commit_id2);
 
 int check_ginit_exist() {
     char cwd[MAX_ADDRESS_LENGTH];
@@ -225,7 +226,7 @@ void update_stages() {
     while (fgets(line, sizeof(line), file)) {
         char a[MAX_LINE_LENGTH] , b[MAX_LINE_LENGTH]; int depth;
         sscanf(line , "%s %s %d" , a , b , &depth);
-        if (check_files_modified(b) && !is_directory_or_file(b)) {
+        if ((check_files_modified(b) && !is_directory_or_file(b)) || (is_in_a_ref_file(a , ".ginit/refs/deleted") && !is_directory_or_file(b))) {
             long pos = ftell(file); 
             FILE *temp = fopen(".ginit/refs/temp", "w");
             fseek(file, 0, SEEK_SET);
@@ -515,7 +516,43 @@ void run_diff(int argc , char* argv[]) {
         }
     }
     else if (!strcmp(argv[2] , "-c")) {
-        
+        if (!is_in_a_ref_file(argv[3] , ".ginit/commit_ids") || !is_in_a_ref_file(argv[4] , ".ginit/commit_ids")) {
+            perror("enter valid commit ids\n");
+            exit(EXIT_FAILURE);
+        }
+        else {
+            char cwd[MAX_ADDRESS_LENGTH] , stages1[MAX_ADDRESS_LENGTH] , stages2[MAX_ADDRESS_LENGTH] , line[MAX_ADDRESS_LENGTH] , line2[MAX_ADDRESS_LENGTH] , name[MAX_ADDRESS_LENGTH] , find[MAX_ADDRESS_LENGTH] , address[MAX_ADDRESS_LENGTH] , address2[MAX_ADDRESS_LENGTH];
+            getcwd(cwd , sizeof(cwd));
+            sprintf(stages1 , "%s/.ginit/commits/%s/stages" , cwd , argv[3]); sprintf(stages2 , ".ginit/commits/%s/stages" , argv[4]);
+            FILE* stages_1 = fopen(stages1, "r"); FILE* stages_2 = fopen(stages2 , "r");
+            while (fgets(line , sizeof(line) , stages_1)) {
+                sscanf(line ,"%s " , name);
+                if (!is_in_a_ref_file(name , stages2)) {
+                    printf("file %s exist in commit %s and not exist in commit %s\n" , name , argv[3] , argv[4]);
+                }
+            }
+            while (fgets(line , sizeof(line) , stages_2)) {
+                sscanf(line ,"%s " , name);
+                if (!is_in_a_ref_file(name , stages1)) {
+                    printf("file %s exist in commit %s and not exist in commit %s\n" , name , argv[4] , argv[3]);
+                }
+            }
+            fclose(stages_2); 
+            rewind(stages_1);
+            while (fgets(line , sizeof(line) , stages_1)) {
+                sscanf(line , "%s %s", find , address);
+                if (!is_directory_or_file(address)) {
+                    FILE* file = fopen(stages2 , "r");
+                    while (fgets(line2, sizeof(line2), file)) {
+                        sscanf(line2, "%s %s", name, address2);
+                        if (!strcmp(name, find)) {
+                            run_diff_for_commit(address , address2 , name , argv[3] , argv[4]);
+                        }
+                    }  
+                    fclose(file);
+                }
+            }
+        }
     }
 }
 int is_blanck_line(const char* line , int length) {
@@ -537,9 +574,9 @@ void find_diffs (const char* file1_name , const char* file2_name) {
     for (int i = 0; i < min(num1 , num2); i++) {
         fgets(line1 , sizeof(line1) , file1); fgets(line2 , sizeof(line2) , file2);
         if (strcmp(line1 , line2)) {
-            printf("<<<<<\nfilename : %s - line nember : %d\n", file1_name , i + 1);
+            printf("<<<<<\n<filename : %s> - <line nember : %d>\n", file1_name , i + 1);
             printf("\033[1;31m%s\033[0m" , line1);
-            printf("filename : %s - line nember : %d\n", file2_name , i + 1);
+            printf("<filename : %s> - <line nember : %d>\n", file2_name , i + 1);
             printf("\033[1;34m%s\033[0m" , line2);
             printf(">>>>>\n");
         }
@@ -556,4 +593,40 @@ int number_of_lines(FILE* file) {
         }
     }
     return lineCount;
+}
+void run_diff_for_commit(const char* address1 , const char* address2 , const char* name , const char* commit_id1 , const char* commit_id2) {
+    char copy1[MAX_ADDRESS_LENGTH] , copy2[MAX_ADDRESS_LENGTH] , line[MAX_LINE_LENGTH] , line1[MAX_LINE_LENGTH] , line2[MAX_LINE_LENGTH];
+    sprintf(copy1 ,"%s_copyyyyyyyyyyyyyyyy" , address1); sprintf(copy2 ,"%s_copyyyyyyyyyyyyyyyy" , address2);
+    FILE* input1 = fopen(address1 , "r"); FILE* input2 = fopen(address2 , "r"); FILE* output1 = fopen(copy1 , "w+"); FILE* output2 = fopen(copy2 , "w+");
+    while (fgets(line , sizeof(line) , input1) != NULL) {
+        int length = strlen(line);
+        line[length - 1] = '\0';
+        if (!is_blanck_line(line , length - 1)){
+            line[length - 1] = '\n';
+            fprintf(output1 , "%s" , line);
+        }
+    }
+    while (fgets(line , sizeof(line) , input2) != NULL) {
+        int length = strlen(line);
+        line[length - 1] = '\0';
+        if (!is_blanck_line(line , length - 1)){
+            line[length - 1] = '\n';
+            fprintf(output2 , "%s" , line);
+        }
+    }
+    rewind(output1); rewind(output2);
+    int num1 = number_of_lines(output1) , num2 = number_of_lines(output2);
+    rewind(output1); rewind(output2);
+    for (int i = 0; i < min(num1 , num2); i++) {
+        fgets(line1 , sizeof(line1) , output1); fgets(line2 , sizeof(line2) , output2);
+        if (strcmp(line1 , line2)) {
+            printf("<<<<<\n<filename : %s of commit %s> - <line nember : %d>\n", name , commit_id1 , i + 1);
+            printf("\033[1;31m%s\033[0m" , line1);
+            printf("<filename : %s of commit %s> - <line nember : %d>\n", name ,commit_id2 , i + 1);
+            printf("\033[1;34m%s\033[0m" , line2);
+            printf(">>>>>\n");
+        }
+    }
+    fclose(input1); fclose(input2); fclose(output1); fclose(output2);
+    //remove(copy1); remove(copy2);
 }
