@@ -31,9 +31,10 @@ int main(int argc , char* argv[]) {
         FILE* file = fopen(".ginit/refs/allfiles" , "w");fclose(file);
         list_files_recursively(cwd , ".ginit/refs/allfiles" , 1 , l);
         update_deleted();
-        update_stages();
         update_modified();
+        update_stages();
         update_added();
+        update_tracks();
         if (!strcmp(argv[1] , "add")) {
             run_add(argc , argv);
         }
@@ -70,6 +71,5 @@ int main(int argc , char* argv[]) {
     }
     FILE* file = fopen(".ginit/time" , "w+");
     fprintf(file , "%ld" , time(NULL)); fclose(file);
-
     return 0;
 }
