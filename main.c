@@ -28,12 +28,18 @@ int main(int argc , char* argv[]) {
         }
         char cwd[MAX_ADDRESS_LENGTH]; getcwd(cwd , sizeof(cwd));
         int l = strlen(cwd) + 1;
-        FILE* file = fopen(".ginit/refs/allfiles" , "w");fclose(file);
+        FILE* file = fopen(".ginit/refs/allfiles" , "w");
+        if (file == NULL) {
+            perror("error opening allfiles\n");
+            fclose(file);
+            exit(EXIT_FAILURE);
+        }
+        fclose(file);
         list_files_recursively(cwd , ".ginit/refs/allfiles" , 1 , l);
         update_deleted();
+        update_added();
         update_modified();
         update_stages();
-        update_added();
         update_tracks();
         if (!strcmp(argv[1] , "add")) {
             run_add(argc , argv);
@@ -68,8 +74,12 @@ int main(int argc , char* argv[]) {
                 run_checkout(argv);
             }
         }
+        else {
+            perror("enter valid cammand\n");
+            exit(EXIT_FAILURE);
+        }
     }
-    FILE* file = fopen(".ginit/time" , "w+");
-    fprintf(file , "%ld" , time(NULL)); fclose(file);
+    FILE* clock = fopen(".ginit/time" , "w+");
+    fprintf(clock , "%ld" , time(NULL)); fclose(clock);
     return 0;
 }
