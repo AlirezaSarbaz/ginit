@@ -16,6 +16,7 @@
 #define MAX_BRANCH_NAME 100
 #define MAX_EMAIL_USERNAME_LENGHT 100
 #define MAX_FILENAME 100
+#define MAX_COMMIT_MASSAGE 74
 
 int check_ginit_exist();
 void run_init();
@@ -35,7 +36,7 @@ int is_directory_or_file(const char* path);
 void update_modified();
 void update_deleted();
 void update_added();
-int is_ok_for_checkout();
+int is_ok_for_checkout_or_merge();
 void run_checkout(char* argv[]);
 void remove_tracks();
 void remove_nullspaces(char* filename1 , int begin , int end);
@@ -45,6 +46,8 @@ void find_diffs (const char* file1_name , const char* file2_name);
 int number_of_lines(FILE* file);
 void run_config(int argc , char* argv[]);
 void run_diff_for_commit(const char* address1 , const char* address2 , const char* name , const char* commit_id1 , const char* commit_id2);
+int is_file_empty(const char *filename);
+void run_merge(char* argv[]);
 
 int check_ginit_exist() {
     char cwd[MAX_ADDRESS_LENGTH];
@@ -304,7 +307,6 @@ void copy_stagedfiles_to_commit_dir(const char* commit_id , const char* new_stag
     }
     char line[MAX_LINE_LENGTH] , name[MAX_FILENAME] , address[MAX_ADDRESS_LENGTH] , cwd[MAX_ADDRESS_LENGTH] ,new_path[MAX_ADDRESS_LENGTH];
     getcwd(cwd , sizeof(cwd));
-    int l = strlen(cwd) + 1;
     FILE* new_stage = fopen(new_stage_path , "a");
     while (fgets(line , sizeof(line) , tracks)) {
         sscanf(line , "%s %s " , name , address);
@@ -407,17 +409,11 @@ void run_config(int argc , char* argv[]) {
 
     }
 }
-int is_ok_for_checkout(){
-   FILE* file = fopen(".ginit/refs/allfiles" , "r+");
-    char line[MAX_LINE_LENGTH] , tmp[MAX_ADDRESS_LENGTH];
-    while (fgets(line, sizeof(line), file)) {
-        sscanf(line , "%s " , tmp);
-        if (is_in_a_ref_file(tmp , ".ginit/refs/tracks") && is_in_a_ref_file(tmp , ".ginit/refs/modified") && !is_in_a_ref_file(tmp , ".ginit/refs/stages")) {
-            return 0;
-        }
+int is_ok_for_checkout_or_merge(){
+    if (is_file_empty(".ginit/refs/modified") && is_file_empty(".ginit/refs/modified")) {
+        return 1;
     }
-    fclose(file);
-    return 1;
+    return 0;
 }
 void run_checkout(char* argv[]) {
     if (!strcmp(argv[2] , "HEAD")) {
@@ -426,7 +422,7 @@ void run_checkout(char* argv[]) {
         remove_tracks();
         sprintf(path , "%s/.ginit/commits/%s/*" , cwd ,HEAD_commit_id);
         sprintf(mvCommand , "cp -r %s %s" , path , cwd);
-        system(mvCommand);
+        system(mvCommand); remove("stages");
     }
     else if (!is_in_a_ref_file(argv[2] , ".ginit/commit_ids") && !is_in_a_ref_file(argv[2] , ".ginit/branch")) {
         fprintf(stderr,"pathspec \"%s\" dosen't match any branch or commit\n" , argv[2]);
@@ -437,7 +433,7 @@ void run_checkout(char* argv[]) {
         remove_tracks();
         sprintf(path , "%s/.ginit/commits/%s/*" , cwd ,argv[2]);
         sprintf(mvCommand , "cp -r %s %s" , path , cwd);
-        system(mvCommand);
+        system(mvCommand); remove("stages");
     }
     else if (is_in_a_ref_file(argv[2] , ".ginit/branch")) {
         char path[MAX_ADDRESS_LENGTH] , mvCommand[MAX_ADDRESS_LENGTH] , cwd[MAX_ADDRESS_LENGTH] , commit_id[9] , branch_path[MAX_ADDRESS_LENGTH]; getcwd(cwd , sizeof(cwd));
@@ -446,7 +442,16 @@ void run_checkout(char* argv[]) {
         remove_tracks();
         sprintf(path , "%s/.ginit/commits/%s/*" , cwd ,commit_id);
         sprintf(mvCommand , "cp -r %s %s" , path , cwd);
-        system(mvCommand);
+        system(mvCommand); remove("stages");
+        file = fopen(".ginit/HEAD" , "w");
+        fprintf(file , "%s %s" , commit_id , argv[2]); fclose(file);
+        FILE* stages = fopen(".ginit/refs/stages" , "w"); fclose(stages);
+        FILE* deleted = fopen(".ginit/refs/deleted" , "w"); fclose(deleted);
+        FILE* added = fopen(".ginit/refs/added" , "w"); fclose(added);
+        FILE* modified = fopen(".ginit/refs/modified" , "w"); fclose(modified);
+        FILE* allfiles_copy = fopen(".ginit/refs/allfiles_copy" , "w"); fclose(allfiles_copy);
+        int l = strlen(cwd) + 1;
+        list_files_recursively(cwd , ".ginit/refs/allfiles_copy" , 1 , l);
     }
     /*if () {
         //handle HEAD-n
@@ -628,5 +633,42 @@ void run_diff_for_commit(const char* address1 , const char* address2 , const cha
         }
     }
     fclose(input1); fclose(input2); fclose(output1); fclose(output2);
-    //remove(copy1); remove(copy2);
+    remove(copy1); remove(copy2);
+}
+void run_merge(char* argv[]) {
+    if (!is_in_a_ref_file(argv[2] , ".ginit/branch") || !is_in_a_ref_file(argv[3] , ".ginit/branch")) {
+        perror("please enter valid branch names\n");
+        exit(EXIT_FAILURE);
+    } 
+    else {
+        char commit_massage[1000];
+        printf("enter new commit massage (up to 72 characters) : ");
+        scanf("%s" , commit_massage);
+        if (strlen(commit_massage) > MAX_COMMIT_MASSAGE) {
+            printf("enter a massage up to 72 characters : ");
+            scanf("%s" , commit_massage);
+        }
+        else {
+            char branch1_path[MAX_ADDRESS_LENGTH] , branch2_path[MAX_ADDRESS_LENGTH] ,commit_id1[9] , commit_id2[9] , new_commit_id[9] , stages1[MAX_ADDRESS_LENGTH] , stages2[MAX_ADDRESS_LENGTH] , new_stage_address[MAX_ADDRESS_LENGTH] , path[MAX_ADDRESS_LENGTH];
+            sprintf(branch1_path , ".ginit/branches/%s" , argv[2]); sprintf(branch2_path , ".ginit/branches/%s" , argv[3]);
+            FILE* file = fopen(branch1_path , "r"); fscanf(file , "%s " , commit_id1); fclose(file);
+            file = fopen(branch2_path , "r"); fscanf(file , "%s " , commit_id2); fclose(file);
+            sprintf(stages1 , ".ginit/commits/%s/stages" , commit_id1); sprintf(stages2 , ".ginit/commits/%s/stages" , commit_id2);//استیج های قبلیا
+            strcpy(new_commit_id , generate_commit_id());
+            sprintf(path , ".ginit/commits/%s" , new_commit_id);
+            mkdir(path , 0755);
+            sprintf(new_stage_address , "%s/stages" , path);
+            printf("%s\n" , new_stage_address);
+        }
+    }
+}
+int is_file_empty(const char *filename) {
+    FILE *file = fopen(filename, "r");
+    fseek(file, 0, SEEK_END);
+    if (ftell(file) == 0) { 
+        fclose(file);
+        return 1; 
+    }
+    fclose(file);
+    return 0; 
 }
