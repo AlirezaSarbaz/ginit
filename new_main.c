@@ -72,24 +72,10 @@ int main(int argc , char* argv[]) {
         else if (!strcmp(argv[1] , "diff")) {
             run_diff(argc , argv);
         }
-        else if (!strcmp(argv[1] , "checkout")) {
-            if (!is_ok_for_checkout_or_merge()) {
-                perror("please commit your changes or stash them before you checkout\n");
-                exit(EXIT_SUCCESS);
-            }
-            else {
-                run_checkout(argv);
-            }
+        else if (!strcmp(argv[1] , "reset")) {
+            run_reset(argc , argv);
         }
-        else if (!strcmp(argv[1] , "merge")) {
-            if (!is_ok_for_checkout_or_merge()) {
-                perror("please commit your changes or stash them before you checkout\n");
-                exit(EXIT_FAILURE);
-            }
-            else {
-                run_merge(argv);
-            }
-        }
+
 
         file = fopen(".ginit/time" , "w+");
         if (file == NULL) {
