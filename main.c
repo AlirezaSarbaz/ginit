@@ -1,5 +1,6 @@
 #include "functions.c"
 
+//sdhflajksdhflk//
 
 int main(int argc , char* argv[]) {
     if (argc < 2) {
@@ -7,26 +8,18 @@ int main(int argc , char* argv[]) {
         return 1;
     }
     if (!strcmp(argv[1] , "init")) {
-        if (!check_ginit_exist()) {
-            run_init();
-            FILE* file = fopen(".ginit/time" , "w+");
-            fprintf(file , "%ld" , time(NULL)); fclose(file);
-            char cwd[MAX_ADDRESS_LENGTH]; getcwd(cwd , sizeof(cwd));
-            int l = strlen(cwd) + 1;
-            list_files_recursively(cwd , ".ginit/refs/allfiles" , 1 , l);
-            list_files_recursively(cwd , ".ginit/refs/allfiles_copy" , 1 , l);
-            return 0;
-        }
-        else {
-            perror("ginit repository has already initialized\n");
-            return 1;
-        }
+
     }
     else {
         if (!check_ginit_exist()) {
             perror("not a ginit repository (or any parent up to mount point /)\n");
             exit(EXIT_FAILURE);
         }
+
+
+
+
+        ///asdjfhahjs///
         char cwd[MAX_ADDRESS_LENGTH]; getcwd(cwd , sizeof(cwd));
         int l = strlen(cwd) + 1;
         FILE* file = fopen(".ginit/refs/allfiles" , "w");
@@ -69,7 +62,7 @@ int main(int argc , char* argv[]) {
         else if (!strcmp(argv[1] , "checkout")) {
             if (!is_ok_for_checkout_or_merge()) {
                 perror("please commit your changes or stash them before you checkout\n");
-                exit(EXIT_FAILURE);
+                exit(EXIT_SUCCESS);
             }
             else {
                 run_checkout(argv);
@@ -77,7 +70,7 @@ int main(int argc , char* argv[]) {
         }
         else {
             perror("enter valid cammand\n");
-            exit(EXIT_FAILURE);
+            exit(EXIT_SUCCESS);
         }
     }
     FILE* clock = fopen(".ginit/time" , "w+");
