@@ -86,7 +86,6 @@ void run_init() {
     mkdir(".ginit" , 0755);
     char cwd[MAX_ADDRESS_LENGTH];
     getcwd(cwd , sizeof(cwd));
-
     FILE* local_config = fopen(".ginit/config" , "wb");
     char* home = getenv("HOME"); chdir(home);
     FILE* global_config = fopen(".ginitconfig" , "rb");
@@ -183,7 +182,6 @@ int add_to_tracks_and_stages(int argc , char* argv[]) {
         }
     }
     chdir(cwd);
-    return 0;
 }
 void list_files_recursively(char* basePath , char* filename , int depth , int l) {
     char path[MAX_ADDRESS_LENGTH], name[MAX_ADDRESS_LENGTH];
@@ -418,7 +416,7 @@ void update_tracks() {
     }
     fclose(file);
 }
-int is_directory_or_file(char* path) {
+int is_directory_or_file(char path[]) {
     struct stat path_stat;
     if (stat(path , &path_stat)) {
         perror("Error getting file status");
@@ -504,7 +502,6 @@ void update_added() {
         }
     }
     fclose(file);
-
 }
 void run_config(int argc , char* argv[]) {
     argc ++;
