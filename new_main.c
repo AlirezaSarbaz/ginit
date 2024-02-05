@@ -5,6 +5,7 @@ int main(int argc , char* argv[]) {
         fprintf(stderr ,"please enter a valid command\n");
         return 1;
     }
+    
     if (!strcmp(argv[1] , "init")) {
         if (check_ginit_exist() == 0) {
             run_init();
@@ -100,5 +101,5 @@ int main(int argc , char* argv[]) {
         }
         fprintf(file , "%ld\n" , time(NULL)); fclose(file);
     }
-    return 0;
+    exit(EXIT_SUCCESS);
 }

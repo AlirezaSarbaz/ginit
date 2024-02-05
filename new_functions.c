@@ -3,6 +3,8 @@
 #include <string.h>
 #include <dirent.h>
 #include <stdbool.h>
+
+
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -164,8 +166,6 @@ int is_in_a_ref_file(char* pathspec , char* ref_filename) {
     }
     char line[1024] , tmp[1024];
     while (fgets(line, sizeof(line), file)) {
-        int length = strlen(line);
-        line[length - 1] = '\0';
         sscanf(line , "%s " , tmp);
         if (!strcmp(pathspec , tmp)) {
             fclose(file);
@@ -223,12 +223,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
     char cwd[1024];
     getcwd(cwd , sizeof(cwd));
     if (argc == 3 && !strcmp(argv[2] , "-redo")) {
-    // دستور redo
-    //
-    //
-    //
-    //
-    //
+        FILE* file = fopen(".ginit/refs/tracks" , )
     }
     else if (argc == 3) {
         if (!is_in_a_ref_file(argv[2] , ".ginit/refs/allfiles")) {
@@ -260,7 +255,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     fprintf(file ,"%s %s \n" , argv[2] , path); fclose(file);
                     list_files_recursively(path , ".ginit/refs/stages" , 1 , l);
                 }
-                FILE* file = fopen(".ginit/reset_undo_copy" , "a");
+                /*FILE* file = fopen(".ginit/reset_undo_copy" , "a");
                 fprintf(file ,"%s %s \n" , argv[2] , path); fclose(file);
                 list_files_recursively(path , ".ginit/reset_undo_copy" , 1 , l);
                 file = fopen(".ginit/reset_undo_copy" , "a");
@@ -275,7 +270,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     fprintf(file , "%s" , line2);
                 }
                 fclose(file);fclose(reset_undo_tmp);
-                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");
+                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");*/
             }
             else {
                 if (!is_in_a_ref_file(argv[2] , ".ginit/refs/tracks")) {
@@ -296,7 +291,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     }
                     fprintf(file ,"%s %s \n" , argv[2] , path); fclose(file);
                 }
-                FILE* file = fopen(".ginit/reset_undo_copy" , "a");
+                /*FILE* file = fopen(".ginit/reset_undo_copy" , "a");
                 fprintf(file ,"%s %s \n\n" , argv[2] , path); fclose(file);
                 file = fopen(".ginit/reset_undo" , "rb+"); FILE* reset_undo_tmp = fopen(".ginit/reset_undo_tmp" , "wb+");
                 copy_file_source_to_dest(reset_undo_tmp , file);
@@ -308,15 +303,15 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     fprintf(file , "%s" , line2);
                 }
                 fclose(file);fclose(reset_undo_tmp);
-                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");
+                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");*/
             }
             chdir(cwd);
         }
     }
     else if (!strcmp(argv[2] , "-f")) {
         for (int i = 3; i < argc; i++){
-            if (!is_in_a_ref_file(argv[2] , ".ginit/refs/allfiles")) {
-            fprintf(stderr,"pathspec \"%s\" dosen't match any file\n" , argv[2]);
+            if (!is_in_a_ref_file(argv[i] , ".ginit/refs/allfiles")) {
+            fprintf(stderr,"pathspec \"%s\" dosen't match any file\n" , argv[i]);
             exit(EXIT_SUCCESS);
         }
         else {
@@ -342,7 +337,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     }
                     fprintf(file ,"%s %s \n" , argv[2] , path); fclose(file);
                 }
-                FILE* file = fopen(".ginit/reset_undo_copy" , "a");
+                /*FILE* file = fopen(".ginit/reset_undo_copy" , "a");
                 fprintf(file ,"%s %s \n" , argv[2] , path); fclose(file);
                 list_files_recursively(path , ".ginit/refs/stages" , 1 , l); list_files_recursively(path , ".ginit/refs/tracks" , 1 , l); list_files_recursively(path , ".ginit/reset_undo_copy" , 1 , l);
                 file = fopen(".ginit/reset_undo_copy" , "a");
@@ -357,7 +352,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     fprintf(file , "%s" , line2);
                 }
                 fclose(file);fclose(reset_undo_tmp);
-                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");
+                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");*/
             }
             else {
                 if (!is_in_a_ref_file(argv[2] , ".ginit/refs/tracks")) {
@@ -378,7 +373,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     }
                     fprintf(file ,"%s %s \n" , argv[2] , path); fclose(file);
                 }
-                FILE* file = fopen(".ginit/reset_undo_copy" , "a");
+                /*FILE* file = fopen(".ginit/reset_undo_copy" , "a");
                 fprintf(file ,"%s %s \n\n" , argv[2] , path); fclose(file);
                 file = fopen(".ginit/reset_undo" , "rb+"); FILE* reset_undo_tmp = fopen(".ginit/reset_undo_tmp" , "wb+");
                 copy_file_source_to_dest(reset_undo_tmp , file);
@@ -390,7 +385,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     fprintf(file , "%s" , line2);
                 }
                 fclose(file);fclose(reset_undo_tmp);
-                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");
+                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");*/
             }
             chdir(cwd);
             }
@@ -437,7 +432,7 @@ int check_files_modified(char* file_path) {
     line[10] = '\0';
     time_value = atoi(line);
     struct stat file_info;
-    if (!stat(file_path, &file_info)) {
+    if ((is_exist_directory_or_file(file_path) != -1) && !stat(file_path, &file_info)) {
         time_t last_modified_time = file_info.st_mtime;
         if (time_value < (unsigned long)last_modified_time) {
             fclose(file);
@@ -458,8 +453,8 @@ void update_modified() {
     }
     char line[1024];
     while (fgets(line, sizeof(line), file)) {
-        char a[100] , b[1024]; int depth;
-        sscanf(line , "%s %s %d" , a , b , &depth);
+        char a[100] , b[1024];
+        sscanf(line , "%s %s " , a , b);
         if ((is_exist_directory_or_file(b) != -1) && check_files_modified(b) && !is_in_a_ref_file(a , ".ginit/refs/modified")) {
             FILE* modified = fopen(".ginit/refs/modified" , "a");
             if (modified == NULL) {
@@ -482,8 +477,8 @@ void update_added() {
     }
     char line[1024];
     while (fgets(line, sizeof(line), file)) {
-        char a[1024] , b[1024]; int depth;
-        sscanf(line , "%s %s %d" , a , b , &depth);
+        char a[1024] , b[1024];
+        sscanf(line , "%s %s " , a , b);
         if ((is_in_a_ref_file(a , ".ginit/refs/allfiles_copy") == 0) && (is_in_a_ref_file(a , ".ginit/refs/allfiles") == 1) && (is_in_a_ref_file(a , ".ginit/refs/added") == 0)) {
             FILE* added = fopen(".ginit/refs/added" , "a");
             if (file == NULL) {
@@ -505,8 +500,8 @@ void update_deleted() {
     }
     char line[1024];
     while (fgets(line, sizeof(line), file)) {
-        char a[100] , b[1024]; int depth;
-        sscanf(line , "%s %s %d" , a , b , &depth);
+        char a[100] , b[1024];
+        sscanf(line , "%s %s " , a , b);
         if ((is_in_a_ref_file(a , ".ginit/refs/allfiles") == 0) && (is_in_a_ref_file(a , ".ginit/refs/deleted") == 0)) {
             FILE* deleted = fopen(".ginit/refs/deleted" , "a");
             if (file == NULL) {
@@ -528,8 +523,8 @@ void update_tracks() {
     }
     char line[1024];
     while (fgets(line, sizeof(line), file) != NULL) {
-        char a[100] , b[1024]; int depth;
-        sscanf(line , "%s %s %d" , a , b , &depth);
+        char a[100] , b[1024];
+        sscanf(line , "%s %s " , a , b);
         if (is_in_a_ref_file(a , ".ginit/refs/deleted")) {
             long pos = ftell(file); 
             FILE *temp = fopen(".ginit/refs/temp", "w");
@@ -555,12 +550,13 @@ void update_stages() {
     if (file == NULL) {
         perror("error opening stages in update_stages\n");
         fclose(file);
+        
         exit(EXIT_FAILURE);
     }
     char line[1024];
     while (fgets(line, sizeof(line), file) != NULL) {
-        char a[100] , b[1024]; int depth;
-        sscanf(line , "%s %s %d" , a , b , &depth);
+        char a[100] , b[1024];
+        sscanf(line , "%s %s " , a , b);
         if (is_in_a_ref_file(a , ".ginit/refs/deleted") || is_in_a_ref_file(a , ".ginit/refs/modified")) {
             long pos = ftell(file); 
             FILE *temp = fopen(".ginit/refs/temp2", "w");
@@ -568,7 +564,7 @@ void update_stages() {
             char buffer[1024];
             while (fgets(buffer, sizeof(buffer), file) != NULL) {
                 if (ftell(file) != pos) {
-                    fputs(buffer, temp);
+                    fprintf(temp , "%s" , buffer);
                 }
             }
             if (temp != NULL) {
@@ -592,8 +588,8 @@ void run_status() {
         printf("Added files : \n");
         char line[1024];
         while (fgets(line , sizeof(line) , file) != NULL) {
-            char name[100] , address[512]; int depth;
-            sscanf(line , "%s %s %d " , name , address , &depth);
+            char name[100] , address[512];
+            sscanf(line , "%s %s " , name , address);
             if (is_in_a_ref_file(name , ".ginit/refs/stages")) {
                 printf("\033[1;32m file name : %s \033[0m\n" , name);
             }
@@ -612,8 +608,8 @@ void run_status() {
         printf("Deleted files : \n");
         char line[1024];
         while (fgets(line , sizeof(line) , file) != NULL) {
-            char name[100] , address[1024]; int depth;
-            sscanf(line , "%s %s %d " , name , address , &depth);
+            char name[100] , address[1024];
+            sscanf(line , "%s %s " , name , address);
             printf("\033[1;31m file name : %s \033[0m\n" , name);
         }
     }
@@ -957,8 +953,6 @@ void run_diff_for_commit(char* address1 , char* address2 , char* name , char* co
     fclose(input1); fclose(input2); fclose(output1); fclose(output2);
     remove(copy1); remove(copy2);
 }
-
-
 int is_ok_for_checkout_or_merge(){
     FILE* file = fopen(".ginit/refs/allfiles" , "r+");
     char line[1024] , name[100];

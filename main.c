@@ -3,16 +3,39 @@
 //sdhflajksdhflk//
 
 int main(int argc , char* argv[]) {
+
+
     if (argc < 2) {
-        perror("please enter a valid command\n");
+    
+        perror("please enter a valid command\n"  );
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
+        
         return 1;
     }
+    
+    
+    
+    
+    
+    
     if (!strcmp(argv[1] , "init")) {
 
     }
     else {
         if (!check_ginit_exist()) {
-            perror("not a ginit repository (or any parent up to mount point /)\n");
+            perror("not a ginit repository (or anny parent up to mount point /)\n");
             exit(EXIT_FAILURE);
         }
 
