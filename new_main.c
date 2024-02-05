@@ -48,11 +48,11 @@ int main(int argc , char* argv[]) {
         int l = strlen(cwd) + 1;
         FILE* file = fopen(".ginit/refs/allfiles" , "w"); fclose(file);
         list_files_recursively(cwd , ".ginit/refs/allfiles" , 1 , l);
-        update_modified();
         update_added();
         update_deleted();
+        update_modified();
         update_tracks();
-
+        update_stages();
 
         if (!strcmp(argv[1] , "config")) {
             run_config(argv);
@@ -72,14 +72,8 @@ int main(int argc , char* argv[]) {
         else if (!strcmp(argv[1] , "diff")) {
             run_diff(argc , argv);
         }
-        else if (!strcmp(argv[1] , "checkout")) {
-            if (!is_ok_for_checkout_or_merge()) {
-                perror("please commit your changes or stash them before you checkout\n");
-                exit(EXIT_SUCCESS);
-            }
-            else {
-                run_checkout(argv);
-            }
+        else if (!strcmp(argv[1] , "reset")) {
+            run_reset(argc , argv);
         }
         else if (!strcmp(argv[1] , "merge")) {
             if (!is_ok_for_checkout_or_merge()) {
@@ -90,7 +84,19 @@ int main(int argc , char* argv[]) {
                 run_merge(argv);
             }
         }
-
+        else if (!strcmp(argv[1] , "checkout")) {
+            if (!is_ok_for_checkout_or_merge()) {
+                perror("please commit your changes or stash them before you checkout\n");
+                exit(EXIT_FAILURE);
+            }
+            else {
+                run_checkout(argv);
+            }
+        }
+        else {
+            perror("enter valid cammand\n");
+            exit(EXIT_FAILURE);
+        }
         file = fopen(".ginit/time" , "w+");
         if (file == NULL) {
             perror("error opening time file");
