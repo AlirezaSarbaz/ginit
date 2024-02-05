@@ -62,7 +62,7 @@ int main(int argc , char* argv[]) {
         else if (!strcmp(argv[1] , "checkout")) {
             if (!is_ok_for_checkout_or_merge()) {
                 perror("please commit your changes or stash them before you checkout\n");
-                exit(EXIT_SUCCESS);
+                exit(EXIT_FAILURE);
             }
             else {
                 run_checkout(argv);
@@ -70,7 +70,7 @@ int main(int argc , char* argv[]) {
         }
         else {
             perror("enter valid cammand\n");
-            exit(EXIT_SUCCESS);
+            exit(EXIT_FAILURE);
         }
     }
     FILE* clock = fopen(".ginit/time" , "w+");
