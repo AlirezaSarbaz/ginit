@@ -48,11 +48,11 @@ int main(int argc , char* argv[]) {
         int l = strlen(cwd) + 1;
         FILE* file = fopen(".ginit/refs/allfiles" , "w"); fclose(file);
         list_files_recursively(cwd , ".ginit/refs/allfiles" , 1 , l);
-        update_modified();
         update_added();
         update_deleted();
+        update_modified();
         update_tracks();
-
+        //update_stages();
 
         if (!strcmp(argv[1] , "config")) {
             run_config(argv);
@@ -74,6 +74,9 @@ int main(int argc , char* argv[]) {
         }
         else if (!strcmp(argv[1] , "reset")) {
             run_reset(argc , argv);
+        }
+        else if (!strcmp(argv[1] , "merge")) {
+            run_merge(argv);
         }
 
 

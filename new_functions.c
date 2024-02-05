@@ -219,7 +219,7 @@ int is_exist_directory_or_file(char path[]) {
     }
 }    
 void add_to_tracks_and_stages(int argc , char* argv[]) {
-    char cwd[512];
+    char cwd[1024];
     getcwd(cwd , sizeof(cwd));
     if (argc == 3 && !strcmp(argv[2] , "-redo")) {
     // دستور redo
@@ -235,7 +235,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
             exit(EXIT_SUCCESS);
         }
         else {
-            char path[1024];
+            char path[1100];
             int l = strlen(cwd) + 1;
             sprintf(path , "%s/%s" , cwd , argv[2]);
             if (is_exist_directory_or_file(path) == 1) {
@@ -288,7 +288,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
             printf("pathspec \"%s\" dosen't match any file\n" , argv[i]);
             }
             else {
-                char path[1024];
+                char path[1100];
                 int l = strlen(cwd) + 1;
                 sprintf(path , "%s/%s" , cwd , argv[i]);
                 if (is_exist_directory_or_file(path) == 1) {
@@ -398,7 +398,7 @@ void update_modified() {
     }
     char line[1024];
     while (fgets(line, sizeof(line), file)) {
-        char a[100] , b[512]; int depth;
+        char a[100] , b[1024]; int depth;
         sscanf(line , "%s %s %d" , a , b , &depth);
         if ((is_exist_directory_or_file(b) != -1) && check_files_modified(b) && !is_in_a_ref_file(a , ".ginit/refs/modified")) {
             FILE* modified = fopen(".ginit/refs/modified" , "a");
@@ -445,7 +445,7 @@ void update_deleted() {
     }
     char line[1024];
     while (fgets(line, sizeof(line), file)) {
-        char a[100] , b[512]; int depth;
+        char a[100] , b[1024]; int depth;
         sscanf(line , "%s %s %d" , a , b , &depth);
         if ((is_in_a_ref_file(a , ".ginit/refs/allfiles") == 0) && (is_in_a_ref_file(a , ".ginit/refs/deleted") == 0)) {
             FILE* deleted = fopen(".ginit/refs/deleted" , "a");
@@ -468,7 +468,7 @@ void update_tracks() {
     }
     char line[1024];
     while (fgets(line, sizeof(line), file) != NULL) {
-        char a[100] , b[512]; int depth;
+        char a[100] , b[1024]; int depth;
         sscanf(line , "%s %s %d" , a , b , &depth);
         if (is_in_a_ref_file(a , ".ginit/refs/deleted")) {
             long pos = ftell(file); 
@@ -499,7 +499,7 @@ void update_stages() {
     }
     char line[1024];
     while (fgets(line, sizeof(line), file) != NULL) {
-        char a[100] , b[512]; int depth;
+        char a[100] , b[1024]; int depth;
         sscanf(line , "%s %s %d" , a , b , &depth);
         if (is_in_a_ref_file(a , ".ginit/refs/modified") || is_in_a_ref_file(a , ".ginit/refs/deleted")) {
             long pos = ftell(file); 
@@ -564,7 +564,7 @@ void run_status() {
         printf("Deleted files : \n");
         char line[1024];
         while (fgets(line , sizeof(line) , file) != NULL) {
-            char name[100] , address[512]; int depth;
+            char name[100] , address[1024]; int depth;
             sscanf(line , "%s %s %d " , name , address , &depth);
             printf("\033[1;31m file name : %s \033[0m\n" , name);
         }
@@ -579,7 +579,7 @@ void run_status() {
         printf("Modified files : \n");
         char line[1024];
         while (fgets(line , sizeof(line) , file) != NULL) {
-            char name[100] , address[512]; int depth;
+            char name[100] , address[1024]; int depth;
             sscanf(line , "%s %s %d " , name , address , &depth);
             if (is_in_a_ref_file(name , ".ginit/refs/stages")) {
                 printf("\033[1;32m file name : %s \033[0m\n" , name);
@@ -974,7 +974,7 @@ void run_checkout(char* argv[]) {
 }
 void remove_tracks() {
     FILE* file = fopen(".ginit/refs/tracks" , "r+");
-    char line[1024] , name[100] , address[512] , rmCommand[1024];
+    char line[1024] , name[100] , address[1024] , rmCommand[1100];
     while (fgets(line, sizeof(line), file)) {
         sscanf(line , "%s %s " , name , address);
         if (is_exist_directory_or_file(address) == 0) {
@@ -1002,72 +1002,98 @@ void run_merge(char* argv[]) {
             scanf("%s" , commit_massage);
         }
         else {
-            char branch1_path[1024] , branch2_path[1024] ,commit_id1[9] , commit_id2[9] , new_commit_id[9] , stages1[1024] , stages2[1024] , new_stage_address[1100] , path[1024] , line[1024] , username[100] , email[100];
+            char branch1_path[1024] , branch2_path[1024] ,commit_id1[9] , commit_id2[9] , new_commit_id[9] , stages1[1024] , stages2[1024] , new_stage_address[1100] , path[1024] , username[100] , email[100];
             sprintf(branch1_path , ".ginit/branches/%s" , argv[3]); sprintf(branch2_path , ".ginit/branches/%s" , argv[4]);
             FILE* file = fopen(branch1_path , "r"); fscanf(file , "%s " , commit_id1); fclose(file);
-            file = fopen(branch2_path , "r"); fscanf(file , "%s " , commit_id2); fclose(file); remove(branch2_path);
+            file = fopen(branch2_path , "r"); fscanf(file , "%s " , commit_id2); fclose(file); //remove(branch2_path);
             sprintf(stages1 , ".ginit/commits/%s/stages" , commit_id1); sprintf(stages2 , ".ginit/commits/%s/stages" , commit_id2);
             strcpy(new_commit_id , generate_commit_id());
             sprintf(path , ".ginit/commits/%s" , new_commit_id);
-            mkdir(path , 0755);
+            //mkdir(path , 0755);
             sprintf(new_stage_address ,"%s/stages" , path);
-            FILE* head = fopen(".ginit/HEAD" , "w");
-            fprintf(head , "%s %s" , new_commit_id , argv[3]);fclose(head);
-            FILE* deleted = fopen(".ginit/refs/deleted" , "w"); fclose(deleted);
-            FILE* added = fopen(".ginit/refs/added" , "w"); fclose(added);
-            FILE* modified = fopen(".ginit/refs/modified" , "w"); fclose(modified);
-            
-            /*FILE* src = fopen(".ginit/refs/tracks" , "rb"); FILE* dest = fopen(".ginit/refs/stages" , "wb");
-            copy_file_source_to_dest(dest , src);
-            copy_stagedfiles_to_commit_dir(new_commit_id , new_stage_address);*
-            FILE* commit_ids = fopen(".ginit/commit_ids" , "a"); fprintf(commit_ids , "merge\n%s\n" , new_commit_id); fclose(commit_ids);
-            FILE* stages = fopen(".ginit/refs/stages" , "w"); fclose(stages);
-            FILE* allfiles_copy = fopen(".ginit/refs/allfiles_copy" , "w"); fclose(allfiles_copy);
-            FILE* head = fopen(".ginit/HEAD" , "w");
-            fprintf(head , "%s %s" , new_commit_id , argv[3]);fclose(head);
-            file = fopen(branch1_path , "w"); fprintf(file , "%s" , new_commit_id); fclose(file); 
-            file = fopen(".ginit/branch" , "r+");*/
-            /*while (fgets(line, sizeof(line), file)) {
-                int length = strlen(line);
-                line[length - 1] = '\0';
-                if (!strcmp(line , argv[4])) {
-                    long pos = ftell(file); 
-                    FILE* temp = fopen(".ginit/temp", "w");
-                    fseek(file, 0, SEEK_SET);
-                    char buffer[1024];
-                    while (fgets(buffer, sizeof(buffer), file)) {
-                        if (ftell(file) != pos) {
-                            fputs(buffer, temp);
+            //FILE* head = fopen(".ginit/HEAD" , "w");
+            //fprintf(head , "%s %s" , new_commit_id , argv[3]);fclose(head);
+            //FILE* deleted = fopen(".ginit/refs/deleted" , "w"); fclose(deleted);
+            //FILE* added = fopen(".ginit/refs/added" , "w"); fclose(added);
+            //FILE* modified = fopen(".ginit/refs/modified" , "w"); fclose(modified);
+            FILE* stages_2 = fopen(stages2 , "r");
+            char line[1100] , name[100] , address[1024] , cwd[1024];
+            getcwd(cwd , sizeof(cwd));
+            while (fgets(line , sizeof(line) , stages_2)) {
+                sscanf(line , "%s %s " , name , address);
+                if (!is_in_a_ref_file(name , ".ginit/refs/allfiles") || (is_exist_directory_or_file(address) == 1)) {
+                    char new_address[1200];
+                    sprintf(new_address , "%s/%s" , cwd , name);
+                    if ((is_exist_directory_or_file(address) != -1)) {
+                        if (is_exist_directory_or_file(address) == 1) {
+                            mkdir(new_address , 0755);
+                        }
+                        else {
+                            FILE* src = fopen(address , "rb+"); 
+                            if (src == NULL) {
+                                perror("Error opening file");
+                                exit(EXIT_FAILURE);
+                            }
+                            FILE* dest = fopen(new_address , "wb+");
+                            if (dest == NULL) {
+                                perror("Error opening file");
+                                exit(EXIT_FAILURE);
+                            }
+                            copy_file_source_to_dest(dest , src);
+                        }
+                        if (!is_in_a_ref_file(name , ".ginit/refs/tracks")) {
+                            FILE* tracks = fopen(".ginit/refs/tracks" , "a");
+                            fprintf(tracks , "%s %s \n" , name , new_address); fclose(tracks);
                         }
                     }
-                    if (temp != NULL) {
-                        fclose(temp);
+                }
+                else {
+                    if ((is_exist_directory_or_file(address) == 0)) {
+                        char address_in_workdir[1200] , line1[1024] , line2[1024];
+                        sprintf(address_in_workdir , "%s/%s" , cwd , name);
+                        FILE* file_in_work_dir = fopen(address_in_workdir , "r");
+                        FILE* file_in_other_branch = fopen(address , "r");
+                        int num1 = number_of_lines(file_in_other_branch);
+                        int num2 = number_of_lines(file_in_work_dir);
+                        fclose(file_in_other_branch); fclose(file_in_work_dir);
+                        file_in_work_dir = fopen(address_in_workdir , "r");
+                        file_in_other_branch = fopen(address , "r");
+                        FILE* tmp = fopen(".ginit/tmp" , "a");
+                        for (int i = 0; i < max(num1 , num2); i++) {
+                            if (fgets(line1 , sizeof(line1) , file_in_work_dir) == NULL){
+                                strcpy(line1 , "\n");
+                            }
+                            if (fgets(line2 , sizeof(line2) , file_in_other_branch) == NULL) {
+                                strcpy(line2 , "\n");
+                            }
+                            int l1 = strlen(line1) , l2 = strlen(line2);
+                            line1[l1 - 1] = '\0'; line2[l2 - 1] = '\0';
+                            if (!strcmp(line1 , line2)) {
+                                fprintf(tmp , "%s\n",line1);
+                            }
+                            else {
+                                int n;
+                                printf("There are some conflict in file %s in line %d\n " , name , i + 1);
+                                printf("This line in the current file is : \n   <\033[1;32m%s\033[0m>\n" , line1);
+                                printf("This line in the second file is : \n   <\033[1;34m%s\033[0m>\n" , line2);
+                                printf("Which line do you prefer to be in the last file? [1/2] : ");
+                                scanf("%d" , &n);
+                                if (n == 1) {
+                                    fprintf(tmp , "%s\n",line1);
+                                }
+                                else {
+                                    fprintf(tmp , "%s\n",line2);
+                                }
+                            }
+                        }
+                        fclose(tmp); fclose(file_in_other_branch); fclose(file_in_work_dir);
+                        file_in_work_dir = fopen(address_in_workdir , "wb"); tmp = fopen(".ginit/tmp" , "rb");
+                        copy_file_source_to_dest(file_in_work_dir , tmp);
+                        remove(".ginit/tmp");
                     }
-                    remove(".ginit/branch");
-                    rename(".ginit/temp", ".ginit/branch");
-                    fseek(file , 0 , SEEK_SET);
-                    fclose(file);
                 }
             }
-            fclose(file);
-            FILE* config = fopen(".ginit/config" , "r");
-            fgets(line , sizeof(line) , config);
-            sscanf(line , "username : %s email : %s " , username , email); fclose(config);
-            file = fopen(".ginit/logs" , "a"); 
-            fprintf(file , "%s %s %s <%s> %ld %s \"%s\"\n" ,commit_id1 , new_commit_id , username , email , time(NULL) , argv[3] , commit_massage);
-            fclose(file);
-            FILE* stages_2 = fopen(stages2 , "r");
-            while (fgets(line, sizeof(line), stages_2)) {
-                char name[100] , address[512];
-                sscanf(line , "%s %s " , name , address);
-                if (!is_in_a_ref_file(name , new_stage_address)) {
-                    printf("%s\n" , address);
-                }
-            }
-            fclose(stages_2);*/
-            /*char cwd[MAX_ADDRESS_LENGTH]; getcwd(cwd , sizeof(cwd));
-            int l = strlen(cwd) + 1;
-            list_files_recursively(cwd , ".ginit/refs/allfiles_copy" , 1 , l);*/
+            fclose(stages_2);
         }
     }
 }
