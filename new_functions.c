@@ -995,7 +995,7 @@ void run_merge(char* argv[]) {
             sprintf(stages1 , ".ginit/commits/%s/stages" , commit_id1); sprintf(stages2 , ".ginit/commits/%s/stages" , commit_id2);
             strcpy(new_commit_id , generate_commit_id());
             sprintf(path , ".ginit/commits/%s" , new_commit_id);
-            //mkdir(path , 0755);
+            mkdir(path , 0755);
             sprintf(new_stage_address ,"%s/stages" , path);
             FILE* head = fopen(".ginit/HEAD" , "w");
             fprintf(head , "%s %s" , new_commit_id , argv[3]);fclose(head);
