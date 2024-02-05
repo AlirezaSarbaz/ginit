@@ -52,11 +52,7 @@ int main(int argc , char* argv[]) {
         update_deleted();
         update_modified();
         update_tracks();
-<<<<<<< HEAD
         update_stages();
-=======
-        //update_stages();
->>>>>>> bbranch
 
         if (!strcmp(argv[1] , "config")) {
             run_config(argv);
@@ -77,7 +73,7 @@ int main(int argc , char* argv[]) {
             run_diff(argc , argv);
         }
 
-        
+
         else if (!strcmp(argv[1] , "reset")) {
             run_reset(argc , argv);
         }
