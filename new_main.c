@@ -38,13 +38,24 @@ int main(int argc , char* argv[]) {
             perror("error opening local_config file\n");
             return 1;
         }
+        FILE* local_alis = fopen(".ginit/local_alias" , "wb+");
+        if (local_config == NULL) {
+            perror("error opening local_alias file\n");
+            return 1;
+        }
         char* home = getenv("HOME"); chdir(home);
         FILE* global_config = fopen(".ginitconfig" , "rb");
         if (global_config == NULL) {
             perror("error opening global_config file\n");
             return 1;
         }
+        FILE* global_alias = fopen(".ginitalias" , "rb");
+        if (global_config == NULL) {
+            perror("error opening global_alias file\n");
+            return 1;
+        }
         copy_file_source_to_dest(local_config , global_config);
+        copy_file_source_to_dest(local_alis , global_alias);
         chdir(cwd);
         int l = strlen(cwd) + 1;
         FILE* file = fopen(".ginit/refs/allfiles" , "w"); fclose(file);
@@ -67,14 +78,18 @@ int main(int argc , char* argv[]) {
         else if (!strcmp(argv[1] , "commit")) {
             run_commit(argc , argv);
         }
+        else if (!strcmp(argv[1] , "set")) {
+            run_set(argv);
+        }
+        else if (!strcmp(argv[1] , "replace")) {
+            run_replace(argv);
+        }
         else if (!strcmp(argv[1] , "branch")) {
             run_branch(argc , argv);
         }
         else if (!strcmp(argv[1] , "diff")) {
             run_diff(argc , argv);
         }
-
-
         else if (!strcmp(argv[1] , "reset")) {
             run_reset(argc , argv);
         }
@@ -91,8 +106,25 @@ int main(int argc , char* argv[]) {
             }
         }
         else {
-            perror("enter valid cammand\n");
-            exit(EXIT_FAILURE);
+            if (is_in_a_ref_file(argv[1] , ".ginit/local_alias")) {
+                file = fopen(".ginit/local_alias" , "r");
+                char line[1024];
+                while (fgets(line , sizeof(line) , file) != NULL) {
+                    char name[100] , command[100];
+                    sscanf(line , "%s %[^\n]s" , name , command);
+                    if (!strcmp(name , argv[1])) {
+                        char rmcommand[100];
+                        sprintf(rmcommand , "./b %s" , cut_end_and_first(command));
+                        system(rmcommand);
+                        break;
+                    }
+                }
+                fclose(file);
+            }
+            else {
+                perror("enter valid cammand\n");
+                exit(EXIT_SUCCESS);
+            }
         }
         file = fopen(".ginit/time" , "w+");
         if (file == NULL) {

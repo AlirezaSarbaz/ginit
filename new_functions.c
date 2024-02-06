@@ -7,6 +7,7 @@
 
 #include <unistd.h>
 #include <sys/stat.h>
+
 #include <sys/types.h>
 #include <time.h>
 #include <ctype.h>
@@ -47,6 +48,9 @@ void run_checkout(char* argv[]);
 void remove_tracks();
 void run_reset(int argc , char* argv[]);
 void run_merge(char* argv[]);
+char* cut_end_and_first(char* input);
+void run_set(char* argv[]);
+void run_replace(char* argv[]);
 
 int check_ginit_exist() {
     char cwd[1024];
@@ -110,6 +114,7 @@ void run_init() {
     file = fopen(".ginit/time" , "w"); fclose(file); file = fopen(".ginit/refs/deleted" , "w"); fclose(file); file = fopen(".ginit/refs/added" , "w"); fclose(file); 
     file = fopen(".ginit/commit_ids" , "w"); fprintf(file , "00000000\n"); fclose(file); file = fopen(".ginit/branches/master" , "w"); fprintf(file , "00000000");fclose(file); file = fopen(".ginit/HEAD" , "w"); fprintf(file , "00000000 master");fclose(file);
     file = fopen(".ginit/branch" , "w"); fprintf(file , "master\n");fclose(file); file = fopen(".ginit/logs" , "w"); fclose(file); file = fopen(".ginit/reset_undo" , "w"); fclose(file);
+    file = fopen(".ginit/shortcuts" , "w"); fclose(file);
 }
 void run_config(char* argv[]) {
     if (!strcmp(argv[2] , "-global")) {
@@ -155,6 +160,20 @@ void run_config(char* argv[]) {
         sscanf(line , "username : %s email : %s" , current_username , current_email);
         fprintf(local_config , "username : %s email : %s" , current_username , argv[3]);
         fclose(local_config);
+    }
+    else {
+        char* token1 ;
+        char* token2;
+        token1 = strtok(argv[2] , ".");
+        token2 = strtok(NULL , ".");
+        if (!strcmp(token1 , "alias")) {
+            char cwd[1024]; getcwd(cwd , sizeof(cwd));
+            char* home = getenv("HOME"); chdir(home);
+            FILE* alias = fopen(".ginitalias" , "a");
+            fprintf(alias , "%s <%s>\n" , token2 , argv[3]);
+            fclose(alias);
+            chdir(cwd);
+        }
     }
 }
 int is_in_a_ref_file(char* pathspec , char* ref_filename) {
@@ -223,7 +242,17 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
     char cwd[1024];
     getcwd(cwd , sizeof(cwd));
     if (argc == 3 && !strcmp(argv[2] , "-redo")) {
-        FILE* file = fopen(".ginit/refs/tracks" , )
+        FILE* file = fopen(".ginit/refs/modified" , "r");
+        char line[1100];
+        while (fgets(line , sizeof(line) , file) != NULL) {
+            char name[100];
+            sscanf(line , "%s " , name);
+            if (!is_in_a_ref_file(name , ".ginit/refs/stages") && is_in_a_ref_file(name , ".ginit/refs/tracks")) {
+                FILE* stages = fopen(".ginit/refs/stages" , "a");
+                fprintf(stages , "%s" , line);
+                fclose(stages);
+            }
+        }
     }
     else if (argc == 3) {
         if (!is_in_a_ref_file(argv[2] , ".ginit/refs/allfiles")) {
@@ -255,14 +284,14 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     fprintf(file ,"%s %s \n" , argv[2] , path); fclose(file);
                     list_files_recursively(path , ".ginit/refs/stages" , 1 , l);
                 }
-                /*FILE* file = fopen(".ginit/reset_undo_copy" , "a");
+                FILE* file = fopen(".ginit/reset_undo_copy" , "a");
                 fprintf(file ,"%s %s \n" , argv[2] , path); fclose(file);
                 list_files_recursively(path , ".ginit/reset_undo_copy" , 1 , l);
                 file = fopen(".ginit/reset_undo_copy" , "a");
                 fprintf(file ,"\n"); fclose(file);
-                file = fopen(".ginit/reset_undo" , "rb+"); FILE* reset_undo_tmp = fopen(".ginit/reset_undo_tmp" , "wb+");
+                file = fopen(".ginit/reset_undo" , "rb"); FILE* reset_undo_tmp = fopen(".ginit/reset_undo_tmp" , "wb+");
                 copy_file_source_to_dest(reset_undo_tmp , file);
-                file = fopen(".ginit/reset_undo" , "wb+"); FILE* reset_undo_copy = fopen(".ginit/reset_undo_copy" , "rb+");
+                file = fopen(".ginit/reset_undo" , "wb"); FILE* reset_undo_copy = fopen(".ginit/reset_undo_copy" , "rb");
                 copy_file_source_to_dest(file , reset_undo_copy);
                 reset_undo_tmp = fopen(".ginit/reset_undo_tmp" , "r"); file = fopen(".ginit/reset_undo" , "a");
                 char line2[1024];
@@ -270,7 +299,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     fprintf(file , "%s" , line2);
                 }
                 fclose(file);fclose(reset_undo_tmp);
-                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");*/
+                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");
             }
             else {
                 if (!is_in_a_ref_file(argv[2] , ".ginit/refs/tracks")) {
@@ -291,7 +320,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     }
                     fprintf(file ,"%s %s \n" , argv[2] , path); fclose(file);
                 }
-                /*FILE* file = fopen(".ginit/reset_undo_copy" , "a");
+                FILE* file = fopen(".ginit/reset_undo_copy" , "a");
                 fprintf(file ,"%s %s \n\n" , argv[2] , path); fclose(file);
                 file = fopen(".ginit/reset_undo" , "rb+"); FILE* reset_undo_tmp = fopen(".ginit/reset_undo_tmp" , "wb+");
                 copy_file_source_to_dest(reset_undo_tmp , file);
@@ -303,7 +332,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     fprintf(file , "%s" , line2);
                 }
                 fclose(file);fclose(reset_undo_tmp);
-                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");*/
+                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");
             }
             chdir(cwd);
         }
@@ -337,7 +366,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     }
                     fprintf(file ,"%s %s \n" , argv[2] , path); fclose(file);
                 }
-                /*FILE* file = fopen(".ginit/reset_undo_copy" , "a");
+                FILE* file = fopen(".ginit/reset_undo_copy" , "a");
                 fprintf(file ,"%s %s \n" , argv[2] , path); fclose(file);
                 list_files_recursively(path , ".ginit/refs/stages" , 1 , l); list_files_recursively(path , ".ginit/refs/tracks" , 1 , l); list_files_recursively(path , ".ginit/reset_undo_copy" , 1 , l);
                 file = fopen(".ginit/reset_undo_copy" , "a");
@@ -352,7 +381,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     fprintf(file , "%s" , line2);
                 }
                 fclose(file);fclose(reset_undo_tmp);
-                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");*/
+                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");
             }
             else {
                 if (!is_in_a_ref_file(argv[2] , ".ginit/refs/tracks")) {
@@ -373,7 +402,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     }
                     fprintf(file ,"%s %s \n" , argv[2] , path); fclose(file);
                 }
-                /*FILE* file = fopen(".ginit/reset_undo_copy" , "a");
+                FILE* file = fopen(".ginit/reset_undo_copy" , "a");
                 fprintf(file ,"%s %s \n\n" , argv[2] , path); fclose(file);
                 file = fopen(".ginit/reset_undo" , "rb+"); FILE* reset_undo_tmp = fopen(".ginit/reset_undo_tmp" , "wb+");
                 copy_file_source_to_dest(reset_undo_tmp , file);
@@ -385,7 +414,7 @@ void add_to_tracks_and_stages(int argc , char* argv[]) {
                     fprintf(file , "%s" , line2);
                 }
                 fclose(file);fclose(reset_undo_tmp);
-                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");*/
+                remove(".ginit/reset_undo_tmp"); remove(".ginit/reset_undo_copy");
             }
             chdir(cwd);
             }
@@ -532,7 +561,7 @@ void update_tracks() {
             char buffer[1024];
             while (fgets(buffer, sizeof(buffer), file) != NULL) {
                 if (ftell(file) != pos) {
-                    fputs(buffer, temp);
+                    fprintf(temp, "%s" , buffer);
                 }
             }
             if (temp != NULL) {
@@ -645,38 +674,61 @@ int is_file_empty(char *filename) {
     return 0; 
 }
 void run_commit(int argc , char* argv[]) {
-    argc ++;
-    char path[1024] , commit_id[9] , line[1024] , line2[1024] ,current_commit_id[9] , current_branch[100] , stage_address[1100];
-    strcpy(commit_id , generate_commit_id());
-    sprintf(path , ".ginit/commits/%s" , commit_id);
-    mkdir(path , 0755);
-    sprintf(stage_address , "%s/stages" , path);
-    char branch_path[1100]; sprintf(branch_path , ".ginit/branches/%s" , current_branch);
-    FILE* file = fopen(".ginit/commit_ids" , "rb"); FILE* commit_ids_copy = fopen(".ginit/commit_ids_copy" , "wb+");
-    copy_file_source_to_dest(commit_ids_copy , file);
-    file = fopen(".ginit/commit_ids" , "w");
-    fprintf(file , "%s \n" , commit_id); fclose(file);
-    commit_ids_copy = fopen(".ginit/commit_ids_copy" , "r"); file = fopen(".ginit/commit_ids" , "a");
-    while (fgets(line2 , sizeof(line2) , commit_ids_copy) != NULL) {
-        fprintf(file , "%s" , line2);
+    if (is_file_empty(".ginit/refs/modified") && is_file_empty(".ginit/refs/stages")) {
+        printf("There is nothing to commit\n");
+        exit(EXIT_SUCCESS);
     }
-    fclose(file);fclose(commit_ids_copy);
-    remove(".ginit/commit_ids_copy");
-    int number = copy_stagedfiles_to_commit_dir(commit_id , stage_address);
-    add_to_logs(argv , commit_id , number);
-    file = fopen(".ginit/HEAD" , "r+");
-    fgets(line , sizeof(line) , file);
-    sscanf(line , "%s %s" , current_commit_id , current_branch);
-    fseek(file , 0 , SEEK_SET); fprintf(file , "%s %s" , commit_id , current_branch);fclose(file);
-    file = fopen(branch_path , "w"); fprintf(file ,"%s" , commit_id); fclose(file);
-    file = fopen(".ginit/refs/stages" , "w"); fclose(file);
-    file = fopen(".ginit/refs/deleted" , "w"); fclose(file);
-    file = fopen(".ginit/refs/added" , "w"); fclose(file);
-    file = fopen(".ginit/refs/modified" , "w"); fclose(file);
-    file = fopen(".ginit/refs/allfiles_copy" , "w"); fclose(file);
-    char cwd[1024]; getcwd(cwd , sizeof(cwd));
-    int l = strlen(cwd) + 1;
-    list_files_recursively(cwd , ".ginit/refs/allfiles_copy" , 1 , l);
+    else if (argc == 4) {
+        if (strlen(argv[3]) > 72) {
+            printf("please a commit massage less than 73 characters\n");
+            exit(EXIT_SUCCESS);
+        }
+        else {
+            argc ++;
+            char path[1024] , commit_id[9] , line[1024] , line2[1024] ,current_commit_id[9] , current_branch[100] , stage_address[1100];
+            strcpy(commit_id , generate_commit_id());
+            sprintf(path , ".ginit/commits/%s" , commit_id);
+            mkdir(path , 0755);
+            sprintf(stage_address , "%s/stages" , path);
+            char branch_path[1100]; sprintf(branch_path , ".ginit/branches/%s" , current_branch);
+            FILE* file = fopen(".ginit/commit_ids" , "rb"); FILE* commit_ids_copy = fopen(".ginit/commit_ids_copy" , "wb+");
+            copy_file_source_to_dest(commit_ids_copy , file);
+            file = fopen(".ginit/commit_ids" , "w");
+            fprintf(file , "%s \n" , commit_id); fclose(file);
+            commit_ids_copy = fopen(".ginit/commit_ids_copy" , "r"); file = fopen(".ginit/commit_ids" , "a");
+            while (fgets(line2 , sizeof(line2) , commit_ids_copy) != NULL) {
+                fprintf(file , "%s" , line2);
+            }
+            fclose(file);fclose(commit_ids_copy);
+            remove(".ginit/commit_ids_copy");
+            int number = copy_stagedfiles_to_commit_dir(commit_id , stage_address);
+            add_to_logs(argv , commit_id , number);
+            file = fopen(".ginit/HEAD" , "r+");
+            fgets(line , sizeof(line) , file);
+            sscanf(line , "%s %s" , current_commit_id , current_branch);
+            fseek(file , 0 , SEEK_SET); fprintf(file , "%s %s" , commit_id , current_branch);fclose(file);
+            file = fopen(branch_path , "w"); fprintf(file ,"%s" , commit_id); fclose(file);
+            file = fopen(".ginit/refs/stages" , "w"); fclose(file);
+            file = fopen(".ginit/refs/deleted" , "w"); fclose(file);
+            file = fopen(".ginit/refs/added" , "w"); fclose(file);
+            file = fopen(".ginit/refs/modified" , "w"); fclose(file);
+            file = fopen(".ginit/refs/allfiles_copy" , "w"); fclose(file);
+            file = fopen(".ginit/reset_undo" , "w"); fclose(file);
+            char cwd[1024]; getcwd(cwd , sizeof(cwd));
+            int l = strlen(cwd) + 1;
+            list_files_recursively(cwd , ".ginit/refs/allfiles_copy" , 1 , l);
+            FILE* config = fopen(".ginit/config" , "r"); 
+            char line3[1024] , username[100] , time_string[11] , tmp[20];
+            time_t current_time;
+            struct tm *local_time;
+            fgets(line3 , sizeof(line3) , config);
+            sscanf(line3 , "%s : %s " ,tmp , username);
+            fclose(config);
+            local_time = localtime(&current_time);
+            strftime(time_string, sizeof(time_string), "%H:%M", local_time);
+            printf("commit was succesful \n   author : %s current time : %s commit id : %s\n" , username , time_string , commit_id);
+        }
+    }
 }
 char* generate_commit_id() {
     char* result = (char*)malloc(9);
@@ -704,7 +756,7 @@ void add_to_logs(char* argv[] , char* commit_id , int number) {
     strftime(time_string, sizeof(time_string), "%H:%M", local_time);
     strftime(date_string, sizeof(date_string), "%Y:%m:%d", local_time);
     file = fopen(".ginit/logs" , "w");
-    fprintf(file , "%s %s <%s> <%s> <%s> <%s> %s <%s> %d\n" ,current_commit_id , commit_id , username , email , time_string , date_string ,current_branch , argv[3] , number); fclose(file);
+    fprintf(file , "%s %s <%s> <%s> <%s> <%s> %s %d <%s>\n" ,current_commit_id , commit_id , username , email , time_string , date_string ,current_branch , number , argv[3]); fclose(file);
     logs_copy = fopen(".ginit/logs_copy" , "r"); file = fopen(".ginit/logs" , "a");
     char line[1024];
     while (fgets(line , sizeof(line) , logs_copy) != NULL) {
@@ -1046,8 +1098,6 @@ void run_merge(char* argv[]) {
             sprintf(path , ".ginit/commits/%s" , new_commit_id);
             mkdir(path , 0755);
             sprintf(new_stage_address ,"%s/stages" , path);
-            FILE* head = fopen(".ginit/HEAD" , "w");
-            fprintf(head , "%s %s" , new_commit_id , argv[3]);fclose(head);
             FILE* deleted = fopen(".ginit/refs/deleted" , "w"); fclose(deleted);
             FILE* added = fopen(".ginit/refs/added" , "w"); fclose(added);
             FILE* modified = fopen(".ginit/refs/modified" , "w"); fclose(modified);
@@ -1144,6 +1194,9 @@ void run_merge(char* argv[]) {
             FILE* stages = fopen(".ginit/refs/stages" , "wb");
             copy_file_source_to_dest(stages , tracks);
             int number = copy_stagedfiles_to_commit_dir(new_commit_id , new_stage_address);
+            add_to_logs(argv , new_commit_id , number);
+            FILE* head = fopen(".ginit/HEAD" , "w");
+            fprintf(head , "%s %s" , new_commit_id , argv[3]);fclose(head);
         }
     }
 }
@@ -1171,7 +1224,7 @@ void run_reset(int argc , char* argv[]) {
                 char buffer[1024];
                 while (fgets(buffer, sizeof(buffer), file) != NULL) {
                     if (ftell(file) != pos) {
-                        fputs(buffer, temp);
+                        fprintf(temp , "%s" , buffer);
                     }
                 }
                 if (temp != NULL) {
@@ -1182,7 +1235,19 @@ void run_reset(int argc , char* argv[]) {
                 rename(".ginit/refs/temp", ".ginit/refs/stages");
             }
         }
-        fclose(file);
+        fclose(file); remove(".ginit/tmp");
+        rename(".ginit/reset_undo" , ".ginit/old");
+        FILE* new = fopen(".ginit/old" , "r"); 
+        FILE* tmmp = fopen(".ginit/tmmp" , "a");
+        char line3[1024]; int i = 1;
+        while (fgets(line3 , sizeof(line3) , file) != NULL) {
+            if (i > (counter + 1)) {
+                fprintf(tmmp , "%s" , line3);
+            }
+            i ++;
+        }
+        fclose(new); fclose(tmmp);
+        remove(".ginit/old"); rename(".ginit/tmmp" , ".ginit/reset_undo");
     }
     else {
         FILE* file = fopen(".ginit/reset_tmp" , "w"); 
@@ -1215,7 +1280,7 @@ void run_reset(int argc , char* argv[]) {
                 char buffer[1024];
                 while (fgets(buffer, sizeof(buffer), file) != NULL) {
                     if (ftell(file) != pos) {
-                        fputs(buffer, temp);
+                        fprintf(temp , "%s" , buffer);
                     }
                 }
                 if (temp != NULL) {
@@ -1227,5 +1292,39 @@ void run_reset(int argc , char* argv[]) {
             }
         }
         fclose(file); remove(".ginit/reset_tmp");
+    }
+}
+char* cut_end_and_first(char* input) {
+   int l = strlen(input);
+   for (int i = 0; i < l - 1; i++) {
+        input[i] = input[i + 1];
+   }
+   input[l - 2] = '\0';
+   return input;
+}
+void run_set(char* argv[]) {
+    FILE* file = fopen(".ginit/shortcuts" , "a");
+    fprintf(file , "%s <%s> \n" , argv[5] , argv[3]);
+    fclose(file);
+}
+void run_replace(char* argv[]) {
+    if (!is_in_a_ref_file(argv[5] , ".ginit/shortcuts")) {
+        printf("This shortcut doesn't exist\n");
+        exit(EXIT_SUCCESS);
+    } 
+    else {
+        printf("1");
+        /*FILE* file = fopen(".ginit/shortcuts" , "r+"); FILE* tmp = fopen(".ginit/tmp" , "a");
+        char line[1024] , name[100] , massage[100];
+        while (fgets(line , sizeof(line) , file) != NULL) {
+            sscanf("%s %[^\n]s " , name , massage);
+            if (!(strcmp(name , argv[5]))) {
+                fprintf(tmp , "%s <%s>" , name , argv[5]);
+            }
+            else {
+                fprintf(file , "%s" , line);
+            }
+        }*/
+        //fclose(file); //fclose(tmp);
     }
 }
