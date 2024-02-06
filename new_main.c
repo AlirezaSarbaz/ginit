@@ -105,6 +105,9 @@ int main(int argc , char* argv[]) {
         else if (!strcmp(argv[1] , "log")) {
             run_log(argc , argv);
         }
+        else if (!strcmp(argv[1] , "tag")) {
+            run_tag(argc , argv);
+        }
         else if (!strcmp(argv[1] , "checkout")) {
             if (!is_ok_for_checkout_or_merge()) {
                 perror("please commit your changes or stash them before you checkout\n");
@@ -123,7 +126,7 @@ int main(int argc , char* argv[]) {
                     sscanf(line , "%s %[^\n]s" , name , command);
                     if (!strcmp(name , argv[1])) {
                         char rmcommand[100];
-                        sprintf(rmcommand , "./b %s" , cut_end_and_first(command));
+                        sprintf(rmcommand , "ginit %s" , cut_end_and_first(command));
                         system(rmcommand);
                         break;
                     }

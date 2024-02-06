@@ -54,6 +54,7 @@ void run_replace(char* argv[]);
 void run_remove(char* argv[]);
 void run_log(int argc , char* argv[]);
 void run_grep(int argc , char* argv[]);
+void run_tag(int argc , char* argv[]);
 
 int check_ginit_exist() {
     char cwd[1024];
@@ -117,7 +118,7 @@ void run_init() {
     file = fopen(".ginit/time" , "w"); fclose(file); file = fopen(".ginit/refs/deleted" , "w"); fclose(file); file = fopen(".ginit/refs/added" , "w"); fclose(file); 
     file = fopen(".ginit/commit_ids" , "w"); fprintf(file , "00000000\n"); fclose(file); file = fopen(".ginit/branches/master" , "w"); fprintf(file , "00000000");fclose(file); file = fopen(".ginit/HEAD" , "w"); fprintf(file , "00000000 master");fclose(file);
     file = fopen(".ginit/branch" , "w"); fprintf(file , "master\n");fclose(file); file = fopen(".ginit/logs" , "w"); fclose(file); file = fopen(".ginit/reset_undo" , "w"); fclose(file);
-    file = fopen(".ginit/shortcuts" , "w"); fclose(file);
+    file = fopen(".ginit/shortcuts" , "w"); fclose(file); file = fopen(".ginit/tag_names" , "w"); fclose(file); file = fopen(".ginit/tag_infos" , "w"); fclose(file);
 }
 void run_config(char* argv[]) {
     if (!strcmp(argv[2] , "-global")) {
@@ -748,7 +749,7 @@ void run_commit(int argc , char* argv[]) {
                         command[l - 2] = '"';
                         command[0] = '"';
                         char rmcommand[1000];
-                        sprintf(rmcommand , "./b commit -m %s\n" , command);
+                        sprintf(rmcommand , "ginit commit -m %s\n" , command);
                         system(rmcommand);
                         break;
                     }
@@ -1082,9 +1083,6 @@ void run_checkout(char* argv[]) {
         int l = strlen(cwd) + 1;
         list_files_recursively(cwd , ".ginit/refs/allfiles_copy" , 1 , l);
     }
-    /*if () {
-        //handle HEAD-n
-    }*/
 }
 void remove_tracks() {
     FILE* file = fopen(".ginit/refs/tracks" , "r+");
@@ -1116,7 +1114,7 @@ void run_merge(char* argv[]) {
             scanf("%s" , commit_massage);
         }
         else {
-            char branch1_path[1024] , branch2_path[1024] ,commit_id1[9] , commit_id2[9] , new_commit_id[9] , stages1[1024] , stages2[1024] , new_stage_address[1100] , path[1024] , username[100] , email[100];
+            char branch1_path[1024] , branch2_path[1024] ,commit_id1[9] , commit_id2[9] , new_commit_id[9] , stages1[1024] , stages2[1024] , new_stage_address[1100] , path[1024];
             sprintf(branch1_path , ".ginit/branches/%s" , argv[3]); sprintf(branch2_path , ".ginit/branches/%s" , argv[4]);
             FILE* file = fopen(branch1_path , "r"); fscanf(file , "%s " , commit_id1); fclose(file);
             file = fopen(branch2_path , "r"); fscanf(file , "%s " , commit_id2); fclose(file); remove(branch2_path);
@@ -1230,7 +1228,50 @@ void run_merge(char* argv[]) {
 }
 void run_reset(int argc , char* argv[]) {
     if (!strcmp(argv[2] , "-f")) {
-        
+        for (int i = 2; i < (argc - 2); i++) {
+            FILE* file = fopen(".ginit/reset_tmp" , "w"); 
+            char cwd[1024] , path[1100]; getcwd(cwd , sizeof(cwd));
+            sprintf(path , "%s/%s" , cwd ,argv[i]);
+            if (is_exist_directory_or_file(path) == 0) {
+                fprintf(file ,"%s\n" , argv[i]);
+                fclose(file);
+            }
+            else if (is_exist_directory_or_file(path) == 1){
+                fprintf(file ,"%s\n" , argv[i]);
+                fclose(file);
+                int l = strlen(path) + 1;
+                list_files_recursively(path , ".ginit/reset_tmp" , 1 , l);
+            }
+            file = fopen(".ginit/refs/stages" , "r+");
+            if (file == NULL) {
+                perror("error opening stages in reset\n");
+                fclose(file);
+                exit(EXIT_FAILURE);
+            }
+            char line[1024];
+            while (fgets(line, sizeof(line), file) != NULL) {
+                char a[100] , b[1024]; int depth;
+                sscanf(line , "%s %s %d" , a , b , &depth);
+                if (is_in_a_ref_file(a , ".ginit/reset_tmp")) {
+                    long pos = ftell(file); 
+                    FILE *temp = fopen(".ginit/temp", "w");
+                    fseek(file, 0, SEEK_SET);
+                    char buffer[1024];
+                    while (fgets(buffer, sizeof(buffer), file) != NULL) {
+                        if (ftell(file) != pos) {
+                            fprintf(temp , "%s" , buffer);
+                        }
+                    }
+                    if (temp != NULL) {
+                        fclose(temp);
+                    }
+                    fclose(file);
+                    remove(".ginit/refs/stages");
+                    rename(".ginit/temp", ".ginit/refs/stages");
+                }
+            }
+            fclose(file); remove(".ginit/reset_tmp");
+        }
     }
     else if (!strcmp(argv[2] , "-undo")) {
         FILE* file = fopen(".ginit/reset_undo" , "r+"); FILE* tmp = fopen(".ginit/tmp" , "w");
@@ -1484,5 +1525,62 @@ void run_grep(int argc , char* argv[]) {
         fclose(file);
     }
 }
-
+void run_tag(int argc , char* argv[]) {
+    if (argc == 2) {
+        FILE* file = fopen(".ginit/tag_names" , "r");
+        char line[1024];
+        while (fgets(line , sizeof(line) , file) != NULL) {
+            printf("%s" , line);
+        }
+        fclose(file);
+    }
+    else if (!strcmp(argv[2] , "show")) {
+        FILE* file = fopen(".ginit/tag_infos" , "r");
+        char line[1024] , tag_name[100] , commit_id[12] , name[100] , email[100] , date[20] , time[20] ,massage[100];
+        while (fgets(line , sizeof(line) , file) != NULL) {
+            sscanf(line , "%s %s %s %s %s %s %[^\n]s " , tag_name , commit_id , name , email , date , time , massage);
+            if (!strcmp(argv[3] , tag_name)) {
+                printf("tag name :%s \ncommit id :%s \nauthor : %s , %s \ndate :%s  time%s \nmassage : %s\n" , tag_name , commit_id , name , email , date , time , massage);
+            }
+        }
+    }
+    else if (is_in_a_ref_file(argv[3] , ".ginit/tag_names")) {
+        printf("This tag already exists\n");
+        exit(EXIT_SUCCESS);
+    }
+    else {
+        FILE* head = fopen(".ginit/HEAD" , "r"); FILE* config = fopen(".ginit/config" , "r");
+        char current_commit_id[9] , current_branch[100] , username[100] , email[100], line1[100] , line2[100];
+        fgets(line1 , sizeof(line1) , config); fgets(line2 , sizeof(line2) , head);
+        sscanf(line1 , "username : %s email : %s" , username , email); sscanf(line2 , "%s %s" , current_commit_id , current_branch);
+        time_t current_time;
+        struct tm *local_time;
+        char date_string[11] , time_string[9];
+        current_time = time(NULL);
+        local_time = localtime(&current_time);
+        strftime(time_string, sizeof(time_string), "%H:%M", local_time);
+        strftime(date_string, sizeof(date_string), "%Y:%m:%d", local_time);
+        fclose(config); fclose(head);
+        if (!strcmp(argv[4] , "-m")) {
+            if (!strcmp(argv[6] , "-c")) {
+                FILE* tag_names = fopen(".ginit/tag_names" , "a"); FILE* tag_infos = fopen(".ginit/tag_infos" , "a");
+                fprintf(tag_names , "%s\n" , argv[3]); fclose(tag_names);
+                fprintf(tag_infos , "%s %s <%s> <%s> <%s> <%s> <%s>\n" , argv[3] , argv[7] , username , email , date_string , time_string , argv[5]);
+                fclose(tag_infos);
+            }
+            else {
+                FILE* tag_names = fopen(".ginit/tag_names" , "a"); FILE* tag_infos = fopen(".ginit/tag_infos" , "a");
+                fprintf(tag_names , "%s\n" , argv[3]); fclose(tag_names);
+                fprintf(tag_infos , "%s %s <%s> <%s> <%s> <%s> <%s>\n" , argv[3] , current_commit_id , username , email , date_string , time_string , argv[5]);
+                fclose(tag_infos);
+            }
+        }
+        else if (!strcmp(argv[4] , "-c")){
+            FILE* tag_names = fopen(".ginit/tag_names" , "a"); FILE* tag_infos = fopen(".ginit/tag_infos" , "a");
+            fprintf(tag_names , "%s\n" , argv[3]); fclose(tag_names);
+            fprintf(tag_infos , "%s %s <%s> <%s> <%s> <%s> <>\n" , argv[3] , argv[5] , username , email , date_string , time_string);
+            fclose(tag_infos);
+        }
+    }
+}
         
