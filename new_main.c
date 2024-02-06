@@ -84,6 +84,9 @@ int main(int argc , char* argv[]) {
         else if (!strcmp(argv[1] , "replace")) {
             run_replace(argv);
         }
+        else if (!strcmp(argv[1] , "remove")) {
+            run_remove(argv);
+        }
         else if (!strcmp(argv[1] , "branch")) {
             run_branch(argc , argv);
         }
@@ -95,6 +98,12 @@ int main(int argc , char* argv[]) {
         }
         else if (!strcmp(argv[1] , "merge")) {
             run_merge(argv);
+        }
+        else if (!strcmp(argv[1] , "grep")) {
+            run_grep(argc , argv);
+        }
+        else if (!strcmp(argv[1] , "log")) {
+            run_log(argc , argv);
         }
         else if (!strcmp(argv[1] , "checkout")) {
             if (!is_ok_for_checkout_or_merge()) {

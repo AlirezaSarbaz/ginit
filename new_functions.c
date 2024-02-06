@@ -51,6 +51,9 @@ void run_merge(char* argv[]);
 char* cut_end_and_first(char* input);
 void run_set(char* argv[]);
 void run_replace(char* argv[]);
+void run_remove(char* argv[]);
+void run_log(int argc , char* argv[]);
+void run_grep(int argc , char* argv[]);
 
 int check_ginit_exist() {
     char cwd[1024];
@@ -678,7 +681,7 @@ void run_commit(int argc , char* argv[]) {
         printf("There is nothing to commit\n");
         exit(EXIT_SUCCESS);
     }
-    else if (argc == 4) {
+    else if (argc == 4 && !strcmp(argv[2] , "-m")) {
         if (strlen(argv[3]) > 72) {
             printf("please a commit massage less than 73 characters\n");
             exit(EXIT_SUCCESS);
@@ -727,6 +730,30 @@ void run_commit(int argc , char* argv[]) {
             local_time = localtime(&current_time);
             strftime(time_string, sizeof(time_string), "%H:%M", local_time);
             printf("commit was succesful \n   author : %s current time : %s commit id : %s\n" , username , time_string , commit_id);
+        }
+    }
+    else if (!strcmp(argv[2] , "-s")) {
+        if (!is_in_a_ref_file(argv[3] , ".ginit/shortcuts")) {
+            printf("This shortcut doesn't exist\n");
+            exit(EXIT_SUCCESS);
+        }
+        else {
+            FILE* file = fopen(".ginit/shortcuts" , "r");
+                char line[1024];
+                while (fgets(line , sizeof(line) , file) != NULL) {
+                    char name[100] , command[100];
+                    sscanf(line , "%s %[^\n]s" , name , command);
+                    if (!strcmp(name , argv[3])) {
+                        int l = strlen(command);
+                        command[l - 2] = '"';
+                        command[0] = '"';
+                        char rmcommand[1000];
+                        sprintf(rmcommand , "./b commit -m %s\n" , command);
+                        system(rmcommand);
+                        break;
+                    }
+                }
+            fclose(file);
         }
     }
 }
@@ -1197,6 +1224,7 @@ void run_merge(char* argv[]) {
             add_to_logs(argv , new_commit_id , number);
             FILE* head = fopen(".ginit/HEAD" , "w");
             fprintf(head , "%s %s" , new_commit_id , argv[3]);fclose(head);
+            printf("merge was succesful! new commit id : %s\n" ,new_commit_id);
         }
     }
 }
@@ -1313,18 +1341,148 @@ void run_replace(char* argv[]) {
         exit(EXIT_SUCCESS);
     } 
     else {
-        printf("1");
-        /*FILE* file = fopen(".ginit/shortcuts" , "r+"); FILE* tmp = fopen(".ginit/tmp" , "a");
+        FILE* file = fopen(".ginit/shortcuts" , "r+"); FILE* tmp = fopen(".ginit/tmp" , "a");
         char line[1024] , name[100] , massage[100];
         while (fgets(line , sizeof(line) , file) != NULL) {
-            sscanf("%s %[^\n]s " , name , massage);
+            sscanf(line ,"%s %s " , name , massage);
             if (!(strcmp(name , argv[5]))) {
-                fprintf(tmp , "%s <%s>" , name , argv[5]);
+                fprintf(tmp , "%s <%s>\n" , name , argv[3]);
             }
             else {
-                fprintf(file , "%s" , line);
+                fprintf(tmp , "%s" , line);
             }
-        }*/
-        //fclose(file); //fclose(tmp);
+        }
+        fclose(file); fclose(tmp);
+        remove(".ginit/shortcuts");
+        rename(".ginit/tmp" , ".ginit/shortcuts");
     }
 }
+void run_remove(char* argv[]) {
+    if (!is_in_a_ref_file(argv[3] , ".ginit/shortcuts")) {
+        printf("This shortcut doesn't exist\n");
+        exit(EXIT_SUCCESS);
+    } 
+    else {
+        FILE* file= fopen(".ginit/shortcuts" , "r+");
+        char line[1024];
+        while (fgets(line, sizeof(line), file) != NULL) {
+            char a[100] , b[1024];
+            sscanf(line , "%s %s " , a , b);
+            if (!strcmp(a , argv[3])) {
+                long pos = ftell(file); 
+                FILE *temp = fopen(".ginit/tmp", "w");
+                fseek(file, 0, SEEK_SET);
+                char buffer[1024];
+                while (fgets(buffer, sizeof(buffer), file) != NULL) {
+                    if (ftell(file) != pos) {
+                        fprintf(temp, "%s" , buffer);
+                    }
+                }
+                if (temp != NULL) {
+                    fclose(temp);
+                }
+                fclose(file);
+                remove(".ginit/shortcuts");
+                rename(".ginit/tmp", ".ginit/shortcuts");
+            }
+        }
+        fclose(file);
+    }
+}
+void run_log(int argc , char* argv[]) {
+    FILE* file = fopen(".ginit/logs" , "r");
+    char line[1024] , last_commit_id[10] , current_commit_id[10] , name[100] , email[100] , time[20] , date[20] , branch_name[100] , massage[100]; int numbers = 0 , counter = atoi(argv[3]);
+    while (fgets(line , sizeof(line) , file) != NULL) {
+        sscanf(line , "%s %s %s %s %s %s %s %d %[^\n]s" , last_commit_id , current_commit_id , name , email , time , date , branch_name, &numbers , massage);
+        if (argc == 2) {
+            printf("this commit was done in : %s of %s in branch : %s with commit id : %s\n author is : %s  , %s ; count of commited files : %d\n commit massage : %s\n" , time , date, branch_name ,current_commit_id , name , email , numbers , massage);
+        }
+        else if (!strcmp(argv[2] , "-n")) {
+            if (counter > 0) {
+                printf("this commit was done in : %s of %s in branch : %s with commit id : %s\n author is : %s  , %s ; count of commited files : %d\n commit massage : %s\n" , time , date, branch_name ,current_commit_id , name , email , numbers , massage);
+                counter --;
+            }
+        }
+        else if (!strcmp(argv[2] , "branch")) {
+            if (!is_in_a_ref_file(argv[3] , ".ginit/branch")) {
+                printf("This branch not exist!\n");
+                exit(EXIT_SUCCESS);
+            }
+            else {
+                printf("this commit was done in : %s of %s in branch : %s with commit id : %s\n author is : %s  , %s ; count of commited files : %d\n commit massage : %s\n" , time , date, branch_name ,current_commit_id , name , email , numbers , massage);
+            }
+        }
+        else if (!strcmp(argv[2] , "-author")) {
+            if (!strcmp(argv[3] , cut_end_and_first(name))) {
+                printf("this commit was done in : %s of %s in branch : %s with commit id : %s\n author is : %s  , %s ; count of commited files : %d\n commit massage : %s\n" , time , date, branch_name ,current_commit_id , name , email , numbers , massage);
+            }
+        }
+        else if (!strcmp(argv[2] , "-since")){
+            if (strcmp(date , argv[3]) > 0) {
+                printf("this commit was done in : %s of %s in branch : %s with commit id : %s\n author is : %s  , %s ; count of commited files : %d\n commit massage : %s\n" , time , date, branch_name ,current_commit_id , name , email , numbers , massage);
+            }
+        }
+        else if (!strcmp(argv[2] , "-before")){
+            if (strcmp(date , argv[3]) < 0) {
+                printf("this commit was done in : %s of %s in branch : %s with commit id : %s\n author is : %s  , %s ; count of commited files : %d\n commit massage : %s\n" , time , date, branch_name ,current_commit_id , name , email , numbers , massage);
+            }
+        }
+        else if (!strcmp(argv[2] , "-search")) {
+            for (int i = 3; i < argc - 3; i++) {
+                if (strstr(massage , argv[i])!= NULL) {
+                    printf("this commit was done in : %s of %s in branch : %s with commit id : %s\n author is : %s  , %s ; count of commited files : %d\n commit massage : %s\n" , time , date, branch_name ,current_commit_id , name , email , numbers , massage);
+                }
+            }
+        }
+    }
+}
+void run_grep(int argc , char* argv[]) {
+    if (argc > 6) {
+        if (!strcmp(argv[6] , "-c")){
+        char cwd[1024] , address[1100]; getcwd(cwd , sizeof(cwd));
+        sprintf(address , "%s/.ginit/commits/%s/%s" , cwd , argv[7] , argv[3]);
+        FILE* file = fopen(address , "r");
+        char line[1024];
+        int counter = 0;
+        while (fgets(line , sizeof(line) , file) != NULL) {
+            counter ++;
+            if (strstr(line , argv[5]) != NULL) {
+                if (!strcmp(argv[argc - 1] , "-n")) {
+                    printf("%d : %s" , counter ,line);
+                }
+                else {
+                    printf("%s",line);
+                }
+            }
+        }
+        fclose(file);
+        }
+        else {
+            FILE* file = fopen(argv[3] , "r");
+            char line[1024];
+            int counter = 0;
+            while (fgets(line , sizeof(line) , file) != NULL) {
+                counter ++;
+                if (strstr(line , argv[5]) != NULL) {
+
+                    printf("%d : %s" , counter ,line);
+                }
+            }
+            fclose(file);
+        }
+    }
+    else {
+        FILE* file = fopen(argv[3] , "r");
+        char line[1024];
+        int counter = 0;
+        while (fgets(line , sizeof(line) , file) != NULL) {
+            counter ++;
+            if (strstr(line , argv[5]) != NULL) {
+                printf("%s",line);
+            }
+        }
+        fclose(file);
+    }
+}
+
+        
